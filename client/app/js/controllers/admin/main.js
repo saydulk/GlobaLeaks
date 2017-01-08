@@ -196,14 +196,6 @@ controller('AdminGeneralSettingsCtrl', ['$scope', '$filter', '$http', 'StaticFil
     });
   };
 
-  $scope.delete_resource = function (url, refresh) {
-    return $http.delete(url).success(function () {
-      if (refresh) {
-        $scope.$emit("REFRESH");
-      }
-    });
-  };
-
   $scope.delete_file = function (url) {
     $http.delete(url).success(function () {
       $scope.update_static_files();
@@ -228,6 +220,32 @@ controller('AdminAdvancedCtrl', ['$scope', '$uibModal',
       template:"views/admin/advanced/tab3.html"
     }
   ];
+
+  $scope.ssl_files = [
+    {
+       title: 'Private key',
+       name: 'priv_key',
+       flag: 'ssl_priv_key_set',
+       type: 'pem',
+       help: 'The key for the certificate',
+    },
+    {
+       title: 'Certificate',
+       name: 'cert',
+       flag: 'ssl_cert_set',
+       type: 'pem',
+    },
+    {
+       title: 'Certificate chain',
+       name: 'chain',
+       flag: 'ssl_chain_set',
+       type: 'pem',
+    },
+  ];
+
+  angular.forEach($scope.ssl_files, function(file) {
+    file.url = '/admin/files/ssl/' + file.name;
+  });
 
   $scope.open_modal_allow_unencrypted = function() {
     if (!$scope.admin.node.allow_unencrypted) {
