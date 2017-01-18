@@ -14,6 +14,8 @@ from globaleaks.jobs.base import GLJob, GLJobsMonitor
 
 from globaleaks.settings import GLSettings
 from globaleaks.utils.utility import log, datetime_now
+from globaleaks.utils.http_master import ProcessSupervisor
+from globaleaks.utils.ssocket import reserve_network_sockets
 
 test_reactor = None
 
@@ -43,6 +45,9 @@ class GlobaLeaksRunner(UnixApplicationRunner):
     def start_globaleaks(self):
         try:
             GLSettings.fix_file_permissions()
+
+            public_net_sockets = reserve_network_sockets()
+
             GLSettings.drop_privileges()
             GLSettings.check_directories()
 
@@ -57,6 +62,8 @@ class GlobaLeaksRunner(UnixApplicationRunner):
             yield refresh_memory_variables()
 
             self.start_asynchronous_jobs()
+
+            ProcessSupervisor(public_net_sockets)
 
         except Exception as excep:
             log.err("ERROR: Cannot start GlobaLeaks; please manually check the error.")
