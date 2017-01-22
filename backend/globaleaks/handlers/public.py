@@ -38,7 +38,8 @@ def db_serialize_node(store, language):
         'favicon': db_get_file(store, u'favicon'),
         'css': db_get_file(store, u'css'),
         'homepage': db_get_file(store, u'homepage'),
-        'script': db_get_file(store, u'script')
+        'script': db_get_file(store, u'script'),
+        'development': GLSettings.devel_mode
     }
 
     l10n_dict = NodeL10NFactory(store).localized_dict(language)
