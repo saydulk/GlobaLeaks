@@ -199,6 +199,12 @@ class GLSettingsClass(object):
         self.mail_timeout = 15 # seconds
         self.mail_attempts_limit = 3 # per mail limit
 
+        # Holds global state until GLSettings is inverted and it is placed 
+        # under this object.
+        self.state = OD()
+        self.state.process_supervisor = None
+
+
     def get_mail_counter(self, receiver_id):
         return self.mail_counters.get(receiver_id, 0)
 
