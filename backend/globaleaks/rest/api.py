@@ -33,7 +33,7 @@ from globaleaks.handlers.admin import overview as admin_overview
 from globaleaks.handlers.admin import shorturl as admin_shorturl
 from globaleaks.handlers.admin import statistics as admin_statistics
 from globaleaks.handlers.admin import notification as admin_notification
-from globaleaks.handlers.admin import config as admin_config
+from globaleaks.handlers.admin import https
 
 from globaleaks.utils.utility import randbits
 
@@ -121,9 +121,9 @@ spec = [
     (r'/admin/anomalies', admin_statistics.AnomalyCollection),
     (r'/admin/l10n/(' + '|'.join(LANGUAGES_SUPPORTED_CODES) + ')', admin_l10n.AdminL10NHandler),
     (r'/admin/files/(logo|favicon|css|homepage|script)', admin_files.FileInstance),
-    (r'/admin/config/tls', admin_config.tls.ConfigHandler),
-    (r'/admin/config/tls/csr', admin_config.tls.CSRConfigHandler),
-    (r'/admin/config/tls/files/(cert|chain|priv_key)', admin_config.tls.FileHandler),
+    (r'/admin/config/tls', https.ConfigHandler),
+    (r'/admin/config/tls/csr', https.CSRConfigHandler),
+    (r'/admin/config/tls/files/(cert|chain|priv_key)', https.FileHandler),
     (r'/admin/staticfiles', admin_staticfiles.StaticFileList),
     (r'/admin/staticfiles/(.+)', admin_staticfiles.StaticFileInstance),
     (r'/admin/overview/tips', admin_overview.Tips),
