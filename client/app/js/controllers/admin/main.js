@@ -278,4 +278,4 @@ controller('AdminReviewModalCtrl', ['$scope', '$uibModalInstance', 'targetFunc',
   $scope.ok = function() {
     return targetFunc().then($uibModalInstance.close);
   };
-}]).
+}]);
