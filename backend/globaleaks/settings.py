@@ -13,12 +13,13 @@ import re
 import sys
 from distutils import dir_util # pylint: disable=no-name-in-module
 from optparse import OptionParser
-from twisted.python.threadpool import ThreadPool
 
+from twisted.python.threadpool import ThreadPool
 from cyclone.util import ObjectDict as OD
 
 from globaleaks import __version__, DATABASE_VERSION
 from globaleaks.utils.singleton import Singleton
+from globaleaks.utils.tor_exit_list import TorExitList
 
 this_directory = os.path.dirname(__file__)
 
@@ -221,6 +222,7 @@ class GLSettingsClass(object):
         # state managed as an object by the application
         self.state = OD()
         self.state.process_supervisor = None
+        self.state.exit_relay_list = TorExitList()
 
 
     def get_mail_counter(self, receiver_id):
