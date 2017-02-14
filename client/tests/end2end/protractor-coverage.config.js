@@ -1,30 +1,17 @@
 var fs = require('fs');
 var specs = JSON.parse(fs.readFileSync('tests/end2end/specs.json'));
-
 var q = require("q");
-var FirefoxProfile = require("firefox-profile");
+var FirefoxProfile = require("selenium-webdriver/firefox").Profile;
 
-var makeFirefoxProfile = function(preferenceMap) {
-  var deferred = q.defer();
-  var firefoxProfile = new FirefoxProfile();
-
+var makeFirefoxProfile = function (preferenceMap) {
+  var profile = new FirefoxProfile();
   for (var key in preferenceMap) {
-    if (preferenceMap.hasOwnProperty(key)) {
-      firefoxProfile.setPreference(key, preferenceMap[key]);
-    }
+    profile.setPreference(key, preferenceMap[key]);
   }
-
-  firefoxProfile.encoded(function (encodedProfile) {
-    var capabilities = {
-      browserName: 'firefox',
-      firefox_profile: encodedProfile,
-    };
-
-    deferred.resolve([capabilities]);
-
+  return q.resolve({
+    browserName: "firefox",
+    firefox_profile: profile
   });
-
-  return deferred.promise;
 };
 
 // The test directory for downloaded files
@@ -47,15 +34,21 @@ exports.config = {
   specs: specs,
 
   getMultiCapabilities: function() {
-    return makeFirefoxProfile({
-      "intl.accept_language": "en_US",
-      "browser.download.folderList": 2,
-      // One of these does the job
-      "browser.download.dir": tmpDir,
-      "browser.download.defaultFolder": tmpDir,
-      "browser.download.downloadDir": tmpDir,
-      "browser.helperApps.neverAsk.saveToDisk": "application/octet-stream",
-    });
+    return q.all([
+      makeFirefoxProfile(
+        {
+          "intl.accept_language": "en_US",
+          "browser.download.folderList": 2,
+          "browser.download.dir": tmpDir,
+          "browser.download.defaultFolder": tmpDir,
+          "browser.download.downloadDir": tmpDir,
+          "browser.download.lastDir": tmpDir,
+          "browser.download.useDownloadDir": true,
+          "browser.helperApps.neverAsk.saveToDisk": "application/octet-stream",
+          "browser.safebrowsing.enabled": false
+        }
+      )
+    ]);
   },
 
   jasmineNodeOpts: {
