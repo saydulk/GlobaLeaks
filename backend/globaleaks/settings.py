@@ -19,7 +19,7 @@ from cyclone.util import ObjectDict as OD
 
 from globaleaks import __version__, DATABASE_VERSION
 from globaleaks.utils.singleton import Singleton
-from globaleaks.utils.tor_exit_list import TorExitList
+from globaleaks.utils.tor_exit_set import TorExitSet
 
 this_directory = os.path.dirname(__file__)
 
@@ -222,7 +222,7 @@ class GLSettingsClass(object):
         # state managed as an object by the application
         self.state = OD()
         self.state.process_supervisor = None
-        self.state.exit_relay_list = TorExitList()
+        self.state.tor_exit_set = TorExitSet()
 
 
     def get_mail_counter(self, receiver_id):
