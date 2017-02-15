@@ -1,7 +1,9 @@
-from globaleaks import __version__
-from globaleaks.utils.utility import log
 from storm.expr import And, Not
 from storm.locals import Storm, Bool, Unicode, JSON
+
+from globaleaks import __version__
+from globaleaks.utils.utility import log
+from globaleaks.utils import tls
 
 import config_desc
 from .config_desc import GLConfig
@@ -229,6 +231,10 @@ def system_cfg_init(store):
         for var_name, cfg_desc in group.iteritems():
             item = Config(gname, var_name, cfg_desc.default)
             store.add(item)
+    log.info("Generating https dh params")
+    dh_params = tls.generate_dh_params()
+    PrivateFactory(store).set_val('https_dh_params', dh_params)
+    log.info("DH param generated and stored")
 
 
 def del_cfg_not_in_groups(store):
