@@ -14,7 +14,7 @@ from globaleaks.jobs.base import GLJob, GLJobsMonitor
 
 from globaleaks.settings import GLSettings
 from globaleaks.utils.utility import log, datetime_now
-from globaleaks.utils.tls_master import ProcessSupervisor
+from globaleaks.workers.supervisor import ProcessSupervisor
 from globaleaks.utils.sock import reserve_port_for_ifaces
 
 test_reactor = None
