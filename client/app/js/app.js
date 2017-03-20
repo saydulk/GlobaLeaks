@@ -301,6 +301,15 @@ var GLClient = angular.module('GLClient', [
           access: requireAuth('admin'),
         }
       }).
+      when('/admin/tenants', {
+        templateUrl: 'views/admin/tenants.html',
+        controller: 'AdminCtrl',
+        header_title: 'Tenant management',
+        header_subtitle: 'Sub project management and settings',
+        resolve: {
+          access: requireAuth('admin'),
+        }
+      }).
       when('/admin', {
         templateUrl: 'views/login.html',
         controller: 'LoginCtrl',
