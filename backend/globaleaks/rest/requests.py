@@ -396,6 +396,10 @@ AdminCSRFileDesc = {
     }
 }
 
+AdminTenantDesc = {
+    'hostname': unicode
+}
+
 AdminShortURLDesc = {
     'shorturl': shorturl_regexp,
     'longurl': longurl_regexp

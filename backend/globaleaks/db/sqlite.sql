@@ -1,6 +1,12 @@
 PRAGMA foreign_keys = ON;
 PRAGMA auto_vacuum = FULL;
 
+CREATE TABLE tenant (
+    id TEXT NOT NULL,
+    hostname TEXT NOT NULL,
+    PRIMARY KEY (id)
+);
+
 CREATE TABLE enabledlanguage (
     name TEXT NOT NULL,
     PRIMARY KEY (name)

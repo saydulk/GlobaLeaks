@@ -28,6 +28,7 @@ from globaleaks.handlers.admin import overview as admin_overview
 from globaleaks.handlers.admin import questionnaire as admin_questionnaire
 from globaleaks.handlers.admin import receiver as admin_receiver
 from globaleaks.handlers.admin import shorturl as admin_shorturl
+from globaleaks.handlers.admin import tenant as admin_tenant
 from globaleaks.handlers.admin import staticfiles as admin_staticfiles
 from globaleaks.handlers.admin import statistics as admin_statistics
 from globaleaks.handlers.admin import step as admin_step
@@ -116,6 +117,8 @@ spec = [
     (r'/admin/fieldtemplates/' + uuid_regexp, admin_field.FieldTemplateInstance),
     (r'/admin/shorturls', admin_shorturl.ShortURLCollection),
     (r'/admin/shorturls/' + uuid_regexp, admin_shorturl.ShortURLInstance),
+    (r'/admin/tenants', admin_tenant.TenantCollection),
+    (r'/admin/tenants/' + uuid_regexp, admin_tenant.TenantInstance),
     (r'/admin/stats/(\d+)', admin_statistics.StatsCollection),
     (r'/admin/activities/(summary|details)', admin_statistics.RecentEventsCollection),
     (r'/admin/anomalies', admin_statistics.AnomalyCollection),

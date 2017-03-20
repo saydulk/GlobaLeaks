@@ -1,29 +1,25 @@
 angular.module('GLClient')
 .controller('MultiTenantCtrl', ['$scope', function($scope) {
-   $scope.newTenant = {
-     hostname: '', 
-   };
 
-   $scope.addTenant = function() {
-     tenant = {
-        hostname: $scope.newTenant.hostname,
-        tid: Math.random().toString(36).substring(7), // TODO take me out to the ball-park
-     };
-     $scope.admin.tenants.push(tenant);
-   
-     $scope.newTenant = {};
-   }
+  $scope.new_tenant = {};
+
+  $scope.add_tenant = function() {
+    var new_tenant = new $scope.admin_utils.new_tenant();
+    new_tenant.hostname = $scope.new_tenant.hostname;
+
+    new_tenant.$save(function(new_tenant){
+      $scope.admin.tenants.push(new_tenant);
+      $scope.new_tenant = {};
+    });
+  }
 }])
-.controller('TenantEditorCtrl', ['$scope', function($scope) {
-  $scope.deleteTenant = function(tenant, $index) {
-    console.log('Removing', tenant);
-    $scope.admin.tenants.remove($index); 
-  } 
-
-  $scope.saveTenant = function() {}  // TODO
-
-  $scope.editing = false;
-  $scope.toggleEditing = function () {
-    $scope.editing = !$scope.editing;
+.controller('TenantEditorCtrl', ['$scope', 'AdminTenantResource', function($scope, AdminTenantResource) {
+  $scope.delete_tenant = function(tenant) {
+    AdminTenantResource.delete({
+      id: tenant.id
+    }, function(){
+      var idx = $scope.admin.tenants.indexOf(tenant);
+      $scope.admin.tenants.splice(idx, 1);
+    });
   };
 }]);
