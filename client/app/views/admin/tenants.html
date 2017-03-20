@@ -1,0 +1,44 @@
+<div class="row">
+  <div id="ConfigSidebarBox" class="col-md-3" data-ng-include="'views/admin/sidebar.html'"></div>
+  <div class="col-md-9" data-ng-controller="MultiTenantCtrl">
+    <div class="row">
+      <form name="newTenant" class="addTenant col-md-6" novalidate>
+        <div class="editorTitle" data-translate>Add new tenant</div>
+        <div class="form-group">
+          <label>
+            <span data-translate>Label</span>
+            <span class="text-danger" uib-popover="{{'This field is mandatory' | translate}}" popover-placement="right" popover-trigger="'mouseenter'">*</span>
+          </label>
+          <div data-ng-class="{'has-error': newTenant.label.$error.required}">
+            <input name="label" class="form-control" data-ng-model="new_tenant.label" maxlength="120" type="text" required />
+          </div>
+        </div>
+        <div class="form-group">
+          <button id="add-button" class="pull-left btn btn-primary" data-ng-disabled="newTenant.$invalid" data-ng-click="add_tenant()" type="submit">
+            <i class="glyphicon glyphicon-plus-sign"></i>
+            <span data-translate>Add</span>
+          </button>
+        </div>
+      </form>
+    </div>
+    <hr />
+    <div class="adminConfigSection" data-ng-show="admin.tenants.length > 0">
+      <div class="editorTitle" data-translate>Tenants list:</div>
+      <div data-ng-repeat="tenant in admin.tenants">
+        <form id="tenant-{{$index}}" name="editTenant" data-ng-controller="TenantEditorCtrl" novalidate>
+          <div class="configItem">
+            <div class="editorHeader row">
+              <span class="col-md-6">
+                <span class="editorHeaderTitle"><span data-translate>Label</span>: {{tenant.label}}</span>
+                <span>ID: {{tenant.id}}</span>
+              </span>
+              <span class="col-md-6">
+                <button class="pull-right actionButton actionButtonDelete btn btn-xs btn-danger" data-ng-click="delete_tenant(tenant); $event.stopPropagation();" data-translate>Delete</button>
+              </span>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>

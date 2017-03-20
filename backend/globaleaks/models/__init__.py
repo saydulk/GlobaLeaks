@@ -142,6 +142,15 @@ class ModelWithID(Model):
         return store.find(cls, cls.id == obj_id).one()
 
 
+class Tenant(ModelWithID):
+    """
+    Class used to implement tenants
+    """
+    hostname = Unicode(validator=shorttext_v)
+
+    unicode_keys = ['hostname']
+
+
 class User(ModelWithID):
     """
     This model keeps track of globaleaks users.
