@@ -15,7 +15,7 @@ from globaleaks.rest import requests
 def serialize_tenant(tenant):
     return {
         'id': tenant.id,
-        'hostname': tenant.hostname
+        'label': tenant.label
     }
 
 
