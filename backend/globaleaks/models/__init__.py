@@ -146,9 +146,9 @@ class Tenant(ModelWithID):
     """
     Class used to implement tenants
     """
-    hostname = Unicode(validator=shorttext_v)
+    label = Unicode(validator=shorttext_v)
 
-    unicode_keys = ['hostname']
+    unicode_keys = ['label']
 
 
 class User(ModelWithID):
