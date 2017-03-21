@@ -12,7 +12,7 @@ class TestTenantCollection(helpers.TestHandlerWithPopulatedDB):
     @inlineCallbacks
     def test_get(self):
         for i in range(3):
-            yield tenant.create_tenant({'hostname': 'tenant-%i' % i})
+            yield tenant.create_tenant({'label': 'tenant-%i' % i})
 
         handler = self.request(role='admin')
         yield handler.get()
@@ -21,7 +21,7 @@ class TestTenantCollection(helpers.TestHandlerWithPopulatedDB):
 
     @inlineCallbacks
     def test_post_new_tenant(self):
-        handler = self.request({'hostname': 'tenant-xxx'}, role='admin')
+        handler = self.request({'label': 'tenant-xxx'}, role='admin')
         yield handler.post()
 
 
@@ -30,7 +30,7 @@ class TestTenantnstance(helpers.TestHandlerWithPopulatedDB):
 
     @inlineCallbacks
     def test_delete(self):
-        tenant_desc = yield tenant.create_tenant({'hostname': 'tenant-xxx'})
+        tenant_desc = yield tenant.create_tenant({'label': 'tenant-xxx'})
 
         handler = self.request(role='admin')
         yield handler.delete(tenant_desc['id'])

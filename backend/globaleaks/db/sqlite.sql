@@ -3,7 +3,7 @@ PRAGMA auto_vacuum = FULL;
 
 CREATE TABLE tenant (
     id TEXT NOT NULL,
-    hostname TEXT NOT NULL,
+    label TEXT NOT NULL,
     PRIMARY KEY (id)
 );
 

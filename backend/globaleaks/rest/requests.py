@@ -397,7 +397,7 @@ AdminCSRFileDesc = {
 }
 
 AdminTenantDesc = {
-    'hostname': unicode
+    'label': unicode
 }
 
 AdminShortURLDesc = {
