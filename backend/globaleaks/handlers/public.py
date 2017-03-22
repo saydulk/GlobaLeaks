@@ -1,6 +1,6 @@
 # -*- coding: UTF-8
 # public
-#   ****
+# ******
 #
 # Implementation of classes handling the HTTP request to /node, public
 # exposed API.
@@ -302,6 +302,9 @@ class PublicResource(BaseHandler):
         """
         Get all the public resources.
         """
-        ret = yield GLApiCache.get('public', self.request.language,
-                                   get_public_resources, self.request.language)
+        ret = yield GLApiCache.get('public',
+                                   self.request.current_tenant_id,
+                                   self.request.language,
+                                   get_public_resources,
+                                   self.request.language)
         self.write(ret)
