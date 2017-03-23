@@ -48,8 +48,14 @@ class Model(Storm):
     datetime_keys = []
     json_keys = []
 
+    id = Unicode(primary=True, default_factory=uuid4)
+
     def __init__(self, values=None, migrate=False):
         self.update(values)
+
+    @classmethod
+    def get(cls, store, obj_id):
+        return store.find(cls, cls.id == obj_id).one()
 
     def update(self, values=None):
         """
@@ -130,19 +136,7 @@ class Model(Storm):
             return {key: getattr(self, key) for key in keys & self._public_attrs}
 
 
-class ModelWithID(Model):
-    """
-    Base class for working the database, already integrating an id.
-    """
-    __storm_table__ = None
-    id = Unicode(primary=True, default_factory=uuid4)
-
-    @classmethod
-    def get(cls, store, obj_id):
-        return store.find(cls, cls.id == obj_id).one()
-
-
-class Tenant(ModelWithID):
+class Tenant(Model):
     """
     Class used to implement tenants
     """
@@ -151,7 +145,7 @@ class Tenant(ModelWithID):
     unicode_keys = ['label']
 
 
-class User(ModelWithID):
+class User(Model):
     """
     This model keeps track of globaleaks users.
     """
@@ -196,7 +190,7 @@ class User(ModelWithID):
     bool_keys = ['deletable', 'password_change_needed']
 
 
-class Context(ModelWithID):
+class Context(Model):
     """
     This model keeps track of contexts settings.
     """
@@ -257,7 +251,7 @@ class Context(ModelWithID):
       'enable_rc_to_wb_files'
     ]
 
-class InternalTip(ModelWithID):
+class InternalTip(Model):
     """
     This is the internal representation of a Tip that has been submitted to the
     GlobaLeaks node.
@@ -297,7 +291,7 @@ class InternalTip(ModelWithID):
     def is_wb_access_revoked(self):
         return self.whistleblowertip is None
 
-class ReceiverTip(ModelWithID):
+class ReceiverTip(Model):
     """
     This is the table keeping track of ALL the receivers activities and
     date in a Tip, Tip core data are stored in StoredTip. The data here
@@ -322,7 +316,7 @@ class ReceiverTip(ModelWithID):
     bool_keys = ['enable_notifications']
 
 
-class WhistleblowerTip(ModelWithID):
+class WhistleblowerTip(Model):
     """
     WhisteleblowerTip implement the expiring authentication token for
     the whistleblower and acts as interface to the InternalTip.
@@ -330,7 +324,7 @@ class WhistleblowerTip(ModelWithID):
     receipt_hash = Unicode()
 
 
-class IdentityAccessRequest(ModelWithID):
+class IdentityAccessRequest(Model):
     """
     This model keeps track of identity access requests by receivers and
     of the answers by custodians.
@@ -344,7 +338,7 @@ class IdentityAccessRequest(ModelWithID):
     reply = Unicode(default=u'pending')
 
 
-class InternalFile(ModelWithID):
+class InternalFile(Model):
     """
     This model keeps track of files before they are packaged
     for specific receivers.
@@ -366,7 +360,7 @@ class InternalFile(ModelWithID):
     processing_attempts = Int(default=0)
 
 
-class ReceiverFile(ModelWithID):
+class ReceiverFile(Model):
     """
     This model keeps track of files destinated to a specific receiver
     """
@@ -388,7 +382,7 @@ class ReceiverFile(ModelWithID):
     # wrong and now is lost
 
 
-class WhistleblowerFile(ModelWithID):
+class WhistleblowerFile(Model):
     """
     This models stores metadata of files uploaded by recipients intended to be
     delivered to the whistleblower. This file is not encrypted and nor is it
@@ -406,7 +400,7 @@ class WhistleblowerFile(ModelWithID):
     description = Unicode(validator=longtext_v)
 
 
-class Comment(ModelWithID):
+class Comment(Model):
     """
     This table handle the comment collection, has an InternalTip referenced
     """
@@ -423,7 +417,7 @@ class Comment(ModelWithID):
     new = Int(default=True)
 
 
-class Message(ModelWithID):
+class Message(Model):
     """
     This table handle the direct messages between whistleblower and one
     Receiver.
@@ -439,7 +433,7 @@ class Message(ModelWithID):
     new = Int(default=True)
 
 
-class Mail(ModelWithID):
+class Mail(Model):
     """
     This model keeps track of emails to be spooled by the system
     """
@@ -454,7 +448,7 @@ class Mail(ModelWithID):
     unicode_keys = ['address', 'subject', 'body']
 
 
-class Receiver(ModelWithID):
+class Receiver(Model):
     """
     This model keeps track of receivers settings.
     """
@@ -482,7 +476,7 @@ class Receiver(ModelWithID):
     ]
 
 
-class Field(ModelWithID):
+class Field(Model):
     x = Int(default=0)
     y = Int(default=0)
     width = Int(default=0)
@@ -520,7 +514,7 @@ class Field(ModelWithID):
     bool_keys = ['editable', 'multi_entry', 'preview', 'required', 'stats_enabled']
 
 
-class FieldAttr(ModelWithID):
+class FieldAttr(Model):
     field_id = Unicode()
     name = Unicode()
     type = Unicode()
@@ -533,7 +527,7 @@ class FieldAttr(ModelWithID):
 
     def update(self, values=None):
         """
-        Updated ModelWithIDs attributes from dict.
+        Updated Models attributes from dict.
         """
         # May raise ValueError and AttributeError
         if values is None:
@@ -556,7 +550,7 @@ class FieldAttr(ModelWithID):
             setattr(self, 'value', unicode(values['value']))
 
 
-class FieldOption(ModelWithID):
+class FieldOption(Model):
     field_id = Unicode()
     presentation_order = Int(default=0)
     label = JSON()
@@ -569,7 +563,7 @@ class FieldOption(ModelWithID):
     localized_keys = ['label']
 
 
-class FieldAnswer(ModelWithID):
+class FieldAnswer(Model):
     internaltip_id = Unicode()
     fieldanswergroup_id = Unicode()
     key = Unicode(default=u'')
@@ -580,7 +574,7 @@ class FieldAnswer(ModelWithID):
     bool_keys = ['is_leaf']
 
 
-class FieldAnswerGroup(ModelWithID):
+class FieldAnswerGroup(Model):
     number = Int(default=0)
     fieldanswer_id = Unicode()
 
@@ -588,7 +582,7 @@ class FieldAnswerGroup(ModelWithID):
     int_keys = ['number']
 
 
-class Step(ModelWithID):
+class Step(Model):
     questionnaire_id = Unicode()
     label = JSON()
     description = JSON()
@@ -600,7 +594,7 @@ class Step(ModelWithID):
     localized_keys = ['label', 'description']
 
 
-class Questionnaire(ModelWithID):
+class Questionnaire(Model):
     key = Unicode(default=u'')
     name = Unicode()
     show_steps_navigation_bar = Bool(default=False)
@@ -619,8 +613,6 @@ class Questionnaire(ModelWithID):
 
 
 class ArchivedSchema(Model):
-    __storm_primary__ = 'hash', 'type'
-
     hash = Unicode()
     type = Unicode()
     schema = JSON()
@@ -628,23 +620,23 @@ class ArchivedSchema(Model):
     unicode_keys = ['hash']
 
 
-class Stats(ModelWithID):
+class Stats(Model):
     start = DateTime()
     summary = JSON()
     free_disk_space = Int()
 
 
-class Anomalies(ModelWithID):
+class Anomalies(Model):
     date = DateTime()
     alarm = Int()
     events = JSON()
 
 
-class SecureFileDelete(ModelWithID):
+class SecureFileDelete(Model):
     filepath = Unicode()
 
 
-class ApplicationData(ModelWithID):
+class ApplicationData(Model):
     version = Int()
     default_questionnaire = JSON()
 
@@ -658,7 +650,6 @@ class ReceiverContext(Model):
     Class used to implement references between Receivers and Contexts
     """
     __storm_table__ = 'receiver_context'
-    __storm_primary__ = 'context_id', 'receiver_id'
 
     context_id = Unicode()
     receiver_id = Unicode()
@@ -668,7 +659,7 @@ class Counter(Model):
     """
     Class used to implement unique counters
     """
-    key = Unicode(primary=True, validator=shorttext_v)
+    key = Unicode(validator=shorttext_v)
     counter = Int(default=1)
     update_date = DateTime(default_factory=datetime_now)
 
@@ -676,7 +667,7 @@ class Counter(Model):
     int_keys = ['number']
 
 
-class ShortURL(ModelWithID):
+class ShortURL(Model):
     """
     Class used to implement url shorteners
     """
@@ -686,7 +677,7 @@ class ShortURL(ModelWithID):
     unicode_keys = ['shorturl', 'longurl']
 
 
-class File(ModelWithID):
+class File(Model):
     """
     Class used for storing files
     """
@@ -699,7 +690,7 @@ class CustomTexts(Model):
     """
     Class used to implement custom texts
     """
-    lang = Unicode(primary=True, validator=shorttext_v)
+    lang = Unicode(validator=shorttext_v)
     texts = JSON()
 
     unicode_keys = ['lang']

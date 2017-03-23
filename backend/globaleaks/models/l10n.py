@@ -1,16 +1,17 @@
 # -*- coding: utf-8 -*-
 
 from storm.expr import And, In
-from storm.locals import Unicode, Storm, Bool
+from storm.locals import Unicode, Bool
 
 from globaleaks import LANGUAGES_SUPPORTED_CODES
+from globaleaks.models import Model
 from globaleaks.rest import errors
 
 
-class EnabledLanguage(Storm):
+class EnabledLanguage(Model):
     __storm_table__ = 'enabledlanguage'
 
-    name = Unicode(primary=True)
+    name = Unicode()
 
     def __init__(self, name=None, migrate=False):
         if migrate:
@@ -46,9 +47,8 @@ class EnabledLanguage(Storm):
             notif_l10n.initialize(lang_code, appdata_dict)
 
 
-class ConfigL10N(Storm):
+class ConfigL10N(Model):
     __storm_table__ = 'config_l10n'
-    __storm_primary__ = ('lang', 'var_group', 'var_name')
 
     lang = Unicode()
     var_group = Unicode()

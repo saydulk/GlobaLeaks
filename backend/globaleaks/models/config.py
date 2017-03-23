@@ -1,7 +1,8 @@
 from storm.expr import And, Not
-from storm.locals import Storm, Bool, Unicode, JSON
+from storm.locals import Bool, Unicode, JSON
 
 from globaleaks import __version__
+from globaleaks.models import Model
 from globaleaks.utils.utility import log
 
 import config_desc
@@ -172,9 +173,8 @@ class PrivateFactory(ConfigFactory):
         return self._export_group_dict(self.mem_export_set)
 
 
-class Config(Storm):
+class Config(Model):
     __storm_table__ = 'config'
-    __storm_primary__ = ('var_group', 'var_name')
 
     cfg_desc = GLConfig
     var_group = Unicode()

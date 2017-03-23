@@ -14,7 +14,7 @@ from globaleaks.settings import GLSettings
 
 from globaleaks.db.migrations.update_34.config import GLConfig_v_35
 
-class Node_v_33(ModelWithID):
+class Node_v_33(Model):
     __storm_table__ = 'node'
 
     version = Unicode()
@@ -112,7 +112,7 @@ class Node_v_33(ModelWithID):
     ]
 
 
-class Notification_v_33(ModelWithID):
+class Notification_v_33(Model):
     __storm_table__ = 'notification'
 
     server = Unicode(validator=shorttext_v, default=u'demo.globaleaks.org')

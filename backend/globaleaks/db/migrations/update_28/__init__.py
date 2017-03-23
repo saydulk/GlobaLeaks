@@ -1,12 +1,16 @@
 # -*- encoding: utf-8 -*-
 
-from storm.locals import Int, Bool, Unicode, JSON
+from storm.locals import Int, Bool, Unicode, JSON, Storm
 
 from globaleaks.db.migrations.update import MigrationBase
-from globaleaks.models import ModelWithID, Model
+from globaleaks.models import Model
 
 
-class Field_v_27(ModelWithID):
+class XXX(Storm):
+    def __init__(self, values=None, migrate=False):
+        pass
+
+class Field_v_27(Model):
     __storm_table__ = 'field'
     x = Int()
     y = Int()
@@ -27,7 +31,7 @@ class Field_v_27(ModelWithID):
     editable = Bool()
 
 
-class Step_v_27(ModelWithID):
+class Step_v_27(Model):
     __storm_table__ = 'step'
     context_id = Unicode()
     label = JSON()
@@ -35,7 +39,7 @@ class Step_v_27(ModelWithID):
     presentation_order = Int()
 
 
-class FieldOption_v_27(ModelWithID):
+class FieldOption_v_27(Model):
     __storm_table__ = 'fieldoption'
     field_id = Unicode()
     presentation_order = Int()
@@ -43,7 +47,7 @@ class FieldOption_v_27(ModelWithID):
     score_points = Int()
 
 
-class FieldField_v_27(Model):
+class FieldField_v_27(XXX):
     __storm_table__ = 'field_field'
     __storm_primary__ = 'parent_id', 'child_id'
 
@@ -51,7 +55,7 @@ class FieldField_v_27(Model):
     child_id = Unicode()
 
 
-class StepField_v_27(Model):
+class StepField_v_27(XXX):
     __storm_table__ = 'step_field'
     __storm_primary__ = 'step_id', 'field_id'
 

@@ -8,26 +8,32 @@ CREATE TABLE tenant (
 );
 
 CREATE TABLE enabledlanguage (
+    id TEXT NOT NULL,
     name TEXT NOT NULL,
-    PRIMARY KEY (name)
+    UNIQUE (name),
+    PRIMARY KEY (id)
 );
 
 CREATE TABLE config (
+    id TEXT NOT NULL,
     var_group TEXT NOT NULL,
     var_name TEXT NOT NULL,
     customized BOOL NOT NULL,
     value BLOB NOT NULL,
-    PRIMARY KEY (var_group, var_name)
+    UNIQUE (var_group, var_name),
+    PRIMARY KEY (id)
 );
 
 CREATE TABLE config_l10n (
+    id TEXT NOT NULL,
     lang TEXT NOT NULL,
     var_group TEXT NOT NULL,
     var_name TEXT NOT NULL,
     value TEXT NOT NULL,
     customized BOOL NOT NULL,
+    UNIQUE (lang, var_group, var_name),
     FOREIGN KEY (lang) REFERENCES enabledlanguage(name) ON DELETE CASCADE,
-    PRIMARY KEY (lang, var_group, var_name)
+    PRIMARY KEY (id)
 );
 
 CREATE TABLE user (
@@ -217,11 +223,13 @@ CREATE TABLE receiver (
 );
 
 CREATE TABLE receiver_context (
+    id TEXT NOT NULL,
     context_id TEXT NOT NULL,
     receiver_id TEXT NOT NULL,
     FOREIGN KEY (context_id) REFERENCES context(id) ON DELETE CASCADE,
     FOREIGN KEY (receiver_id) REFERENCES receiver(id) ON DELETE CASCADE,
-    PRIMARY KEY (context_id, receiver_id)
+    UNIQUE (context_id, receiver_id),
+    PRIMARY KEY (id)
 );
 
 CREATE TABLE receivertip (
@@ -389,12 +397,13 @@ CREATE TABLE fieldanswergroup (
 );
 
 CREATE TABLE archivedschema (
+    id TEXT NOT NULL,
     hash TEXT NOT NULL,
     type TEXT NOT NULL CHECK (type IN ('questionnaire',
                                        'preview')),
     schema BLOB NOT NULL,
     UNIQUE (hash, type),
-    PRIMARY KEY (hash, type)
+    PRIMARY KEY (id)
 );
 
 CREATE TABLE securefiledelete (
@@ -404,10 +413,12 @@ CREATE TABLE securefiledelete (
 );
 
 CREATE TABLE counter (
+    id TEXT NOT NULL,
     key TEXT NOT NULL,
     counter INTEGER NOT NULL,
     update_date TEXT NOT NULL,
-    PRIMARY KEY (key)
+    UNIQUE (key),
+    PRIMARY KEY (id)
 );
 
 CREATE TABLE shorturl (
@@ -425,9 +436,11 @@ CREATE TABLE file (
 );
 
 CREATE TABLE customtexts (
+    id TEXT NOT NULL,
     lang TEXT NOT NULL,
     texts BLOB NOT NULL,
-    PRIMARY KEY (lang)
+    UNIQUE (lang),
+    PRIMARY KEY (id)
 );
 
 CREATE INDEX fieldattr__field_id_index ON fieldattr(field_id);

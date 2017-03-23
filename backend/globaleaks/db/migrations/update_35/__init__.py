@@ -7,7 +7,7 @@ from globaleaks.models.config import NodeFactory
 from globaleaks.models.l10n import EnabledLanguage
 
 
-class Context_v_34(ModelWithID):
+class Context_v_34(Model):
     __storm_table__ = 'context'
     show_small_receiver_cards = Bool(default=False)
     show_context = Bool(default=True)
@@ -33,14 +33,14 @@ class Context_v_34(ModelWithID):
     localized_keys = ['name', 'description', 'recipients_clarification', 'status_page_message']
 
 
-class WhistleblowerTip_v_34(ModelWithID):
+class WhistleblowerTip_v_34(Model):
     __storm_table__ = 'whistleblowertip'
     internaltip_id = Unicode()
     receipt_hash = Unicode()
     access_counter = Int(default=0)
 
 
-class InternalTip_v_34(ModelWithID):
+class InternalTip_v_34(Model):
     __storm_table__ = 'internaltip'
     creation_date = DateTime(default_factory=datetime_now)
     update_date = DateTime(default_factory=datetime_now)

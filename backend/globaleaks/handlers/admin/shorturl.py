@@ -22,20 +22,23 @@ def serialize_shorturl(shorturl):
 
 @transact
 def get_shorturl_list(store):
-    shorturls = store.find(models.ShortURL)
+    shorturls = store.find(models.ShortURL,
+                           models.ShortURL.tenant_id == tid)
     return [serialize_shorturl(shorturl) for shorturl in shorturls]
 
 
 @transact
-def create_shorturl(store, request):
+def create_shorturl(store, tid, request):
     shorturl = models.ShortURL(request)
     store.add(shorturl)
     return serialize_shorturl(shorturl)
 
 
 @transact
-def delete_shorturl(store, shorturl_id):
-    shorturl = store.find(models.ShortURL, models.ShortURL.id == shorturl_id).one()
+def delete_shorturl(store, tid, shorturl_id):
+    shorturl = store.find(models.ShortURL,
+                          models.ShortURL.tenant_id == tid,
+                          models.ShortURL.id == shorturl_id).one()
     if not shorturl:
         raise errors.ShortURLIdNotFound
 
@@ -51,7 +54,7 @@ class ShortURLCollection(BaseHandler):
         """
         Return the list of registered short urls
         """
-        response = yield get_shorturl_list()
+        response = yield get_shorturl_list(self.request.tenant_id)
 
         self.write(response)
 
@@ -63,6 +66,7 @@ class ShortURLCollection(BaseHandler):
         Create a new shorturl
         """
         request = self.validate_message(self.request.body, requests.AdminShortURLDesc)
+        #request['tid'] = self.request.tenant_id
 
         response = yield create_shorturl(request)
 
@@ -78,4 +82,4 @@ class ShortURLInstance(BaseHandler):
         """
         Delete the specified shorturl.
         """
-        yield delete_shorturl(shorturl_id)
+        yield delete_shorturl(self.request.tenant_id, shorturl_id)
