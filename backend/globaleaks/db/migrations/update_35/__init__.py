@@ -130,6 +130,7 @@ class MigrationScript(MigrationBase):
             self.store_new.add(new_obj)
 
     def epilogue(self):
-        nf = NodeFactory(self.store_new)
+        print self
+        nf = NodeFactory(self.store_new, 0)
         self.trim_value_to_range(nf, 'wbtip_timetolive')
         self.store_new.commit()

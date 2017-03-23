@@ -130,16 +130,33 @@ class Model(Storm):
             return {key: getattr(self, key) for key in keys & self._public_attrs}
 
 
-class ModelWithID(Model):
+class ModelWithTID(Model):
     """
-    Base class for working the database, already integrating an id.
+    Base class for models requiring a TID
     """
     __storm_table__ = None
+
+    tid = Int(primary=True)
+
+
+class ModelWithID(Model):
+    """
+    Base class for models requiring an ID
+    """
+    __storm_table__ = None
+
     id = Unicode(primary=True, default_factory=uuid4)
 
     @classmethod
     def get(cls, store, obj_id):
         return store.find(cls, cls.id == obj_id).one()
+
+
+#class ModelWithTIDandID(ModelWithTID, ModelWithID):
+#    """
+#    Base class for models requiring a TID and an ID
+#    """
+#    pass
 
 
 class Tenant(ModelWithID):
@@ -296,6 +313,7 @@ class InternalTip(ModelWithID):
 
     def is_wb_access_revoked(self):
         return self.whistleblowertip is None
+
 
 class ReceiverTip(ModelWithID):
     """

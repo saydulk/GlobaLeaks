@@ -2,7 +2,7 @@ PRAGMA foreign_keys = ON;
 PRAGMA auto_vacuum = FULL;
 
 CREATE TABLE tenant (
-    id TEXT NOT NULL,
+    id INTEGER NOT NULL,
     label TEXT NOT NULL,
     PRIMARY KEY (id)
 );
@@ -13,11 +13,13 @@ CREATE TABLE enabledlanguage (
 );
 
 CREATE TABLE config (
+    tid INTEGER NOT NULL,
     var_group TEXT NOT NULL,
     var_name TEXT NOT NULL,
     customized BOOL NOT NULL,
     value BLOB NOT NULL,
-    PRIMARY KEY (var_group, var_name)
+    FOREIGN KEY (tid) REFERENCES tenant(id) ON DELETE CASCADE,
+    PRIMARY KEY (tid, var_group, var_name)
 );
 
 CREATE TABLE config_l10n (
