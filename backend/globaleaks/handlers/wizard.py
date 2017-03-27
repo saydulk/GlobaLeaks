@@ -19,7 +19,7 @@ from globaleaks.utils.utility import log, datetime_null
 
 @transact
 def wizard(store, request, language):
-    node = NodeFactory(store)
+    node = NodeFactory(store, 0)
 
     if node.get_val('wizard_done'):
         # TODO report as anomaly

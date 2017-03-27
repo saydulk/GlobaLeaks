@@ -121,7 +121,7 @@ def export_fixture(*models):
 
 @transact
 def update_node_setting(store, var_name, value):
-    models.config.NodeFactory(store).set_val(var_name, value)
+    models.config.NodeFactory(store, 0).set_val(var_name, value)
 
 
 def get_dummy_step():

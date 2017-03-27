@@ -33,7 +33,7 @@ from globaleaks.db.migrations.update_32 import Node_v_31, Comment_v_31, Message_
 from globaleaks.db.migrations.update_33 import Node_v_32, WhistleblowerTip_v_32, InternalTip_v_32, User_v_32
 from globaleaks.db.migrations.update_34 import Node_v_33, Notification_v_33
 from globaleaks.db.migrations.update_35 import Context_v_34, InternalTip_v_34, WhistleblowerTip_v_34
-from globaleaks.db.migrations.update_37 import Config_v_36
+from globaleaks.db.migrations.update_37 import Config_v_36, ConfigL10N_v_36
 from globaleaks.models import config, l10n
 from globaleaks.models.config import PrivateFactory
 from globaleaks.settings import GLSettings
@@ -67,7 +67,7 @@ migration_mapping = OrderedDict([
     ('ReceiverFile', [ReceiverFile_v_19, 0, 0, 0, 0, models.ReceiverFile, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
     ('ReceiverTip', [ReceiverTip_v_19, 0, 0, 0, 0, ReceiverTip_v_23, 0, 0, 0, ReceiverTip_v_30, 0, 0, 0, 0, 0, 0, models.ReceiverTip, 0, 0, 0, 0, 0, 0]),
     ('Config', [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, Config_v_36, 0, 0, config.Config]),
-    ('ConfigL10N', [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, l10n.ConfigL10N, 0, 0, 0]),
+    ('ConfigL10N', [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, ConfigL10N_v_36, 0, 0, l10n.ConfigL10N]),
     ('Step', [Step_v_20, 0, 0, 0, 0, 0, Step_v_23, 0, 0, Step_v_27, 0, 0, 0, Step_v_29, 0, models.Step, 0, 0, 0, 0, 0, 0, 0]),
     ('StepField', [StepField_v_27, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]),
     ('SecureFileDelete', [-1, -1, -1, -1, -1, -1, -1, -1, -1, models.SecureFileDelete, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
@@ -175,7 +175,6 @@ def perform_schema_migration(version):
                     raise exception
 
                 for model_name, _ in migration_mapping.iteritems():
-                    print model_name
                     if migration_script.model_from[model_name] is not None and migration_script.model_to[model_name] is not None:
                         try:
                             migration_script.migrate_model(model_name)
@@ -187,11 +186,8 @@ def perform_schema_migration(version):
                             GLSettings.print_msg("Failure while migrating table %s: %s " % (model_name, exception))
                             raise exception
                 try:
-                    print "pre"
                     migration_script.epilogue()
-                    print "post"
                     migration_script.commit()
-                    print "post post"
                 except Exception as exception:
                     print exception
                     GLSettings.print_msg("Failure while executing migration epilogue: %s " % exception)
@@ -208,7 +204,6 @@ def perform_schema_migration(version):
             store_verify = Store(create_database(GLSettings.make_db_uri(new_db_file)))
 
             for model_name, _ in migration_mapping.iteritems():
-                print model_name + '000'
                 if model_name == 'ApplicationData':
                     continue
 
@@ -226,7 +221,6 @@ def perform_schema_migration(version):
                                               (model_name, migration_script.entries_count[model_name]))
 
             version += 1
-            print version
 
             store_verify.close()
 

@@ -12,7 +12,7 @@ from twisted.internet.defer import inlineCallbacks
 from globaleaks import models, security, DATABASE_VERSION, FIRST_DATABASE_VERSION_SUPPORTED
 from globaleaks.db.appdata import db_update_appdata, db_fix_fields_attrs
 from globaleaks.handlers.admin import files
-from globaleaks.models import config, l10n, User
+from globaleaks.models import config, l10n, User, Tenant
 from globaleaks.models.config import NodeFactory, NotificationFactory, PrivateFactory
 from globaleaks.models.l10n import EnabledLanguage
 from globaleaks.orm import transact, transact_sync
@@ -47,6 +47,8 @@ def init_db(store, use_single_lang=False):
     appdata_dict = db_update_appdata(store)
 
     log.debug("Performing database initialization...")
+
+    store.add(Tenant({'label': 'antani'}))
 
     config.system_cfg_init(store)
 
@@ -131,7 +133,7 @@ def db_refresh_exception_delivery_list(store):
     Constructs a list of (email_addr, public_key) pairs that will receive errors from the platform.
     If the email_addr is empty, drop the tuple from the list.
     """
-    notif_fact = NotificationFactory(store)
+    notif_fact = NotificationFactory(store, 0)
     error_addr = notif_fact.get_val('exception_email_address')
     error_pk = notif_fact.get_val('exception_email_pgp_key_public')
 
@@ -150,7 +152,7 @@ def db_refresh_memory_variables(store):
     This routine loads in memory few variables of node and notification tables
     that are subject to high usage.
     """
-    node_ro = ObjectDict(NodeFactory(store).admin_export())
+    node_ro = ObjectDict(NodeFactory(store, 0).admin_export())
 
     GLSettings.memory_copy = node_ro
 
@@ -165,7 +167,7 @@ def db_refresh_memory_variables(store):
     enabled_langs = models.l10n.EnabledLanguage.list(store)
     GLSettings.memory_copy.languages_enabled = enabled_langs
 
-    notif_fact = NotificationFactory(store)
+    notif_fact = NotificationFactory(store, 0)
     notif_ro = ObjectDict(notif_fact.admin_export())
 
     GLSettings.memory_copy.notif = notif_ro
@@ -175,7 +177,7 @@ def db_refresh_memory_variables(store):
 
     db_refresh_exception_delivery_list(store)
 
-    GLSettings.memory_copy.private = ObjectDict(PrivateFactory(store).mem_copy_export())
+    GLSettings.memory_copy.private = ObjectDict(PrivateFactory(store, 0).mem_copy_export())
 
 
 @transact

@@ -45,7 +45,7 @@ class TestSystemConfigModels(helpers.TestGL):
 
         self.assertEqual(False, config.is_cfg_valid(store))
 
-        node = config.NodeFactory(store)
+        node = config.NodeFactory(store, 0)
         c = node.get_cfg('hostname')
         store.remove(c)
         store.commit()
@@ -53,13 +53,13 @@ class TestSystemConfigModels(helpers.TestGL):
         self.assertEqual(False, node.db_corresponds())
 
         # Delete all of the vars in Private Factory
-        prv = config.PrivateFactory(store)
+        prv = config.PrivateFactory(store, 0)
 
         store.execute('DELETE FROM config WHERE var_group = "private"')
 
         self.assertEqual(False, prv.db_corresponds())
 
-        ntfn = config.NotificationFactory(store)
+        ntfn = config.NotificationFactory(store, 0)
 
         c = config.Config('notification', 'server', 'guarda.giochi.con.occhi')
         c.var_name = u'anextravar'

@@ -23,6 +23,7 @@ CREATE TABLE config (
 );
 
 CREATE TABLE config_l10n (
+    tid INTEGER NOT NULL,
     lang TEXT NOT NULL,
     var_group TEXT NOT NULL,
     var_name TEXT NOT NULL,

@@ -44,7 +44,7 @@ def parse_pgp_options(notif, request):
 
 
 def admin_serialize_notification(store, language):
-    config_dict = NotificationFactory(store).admin_export()
+    config_dict = NotificationFactory(store, 0).admin_export()
 
     cmd_flags = {
         'reset_templates': False,
@@ -77,9 +77,9 @@ def update_notification(store, request, language):
 
     smtp_pw = request.pop('smtp_password', u'')
     if smtp_pw != u'':
-        PrivateFactory(store).set_val('smtp_password', smtp_pw)
+        PrivateFactory(store, 0).set_val('smtp_password', smtp_pw)
 
-    notif = NotificationFactory(store)
+    notif = NotificationFactory(store, 0)
     notif.update(request)
 
     parse_pgp_options(notif, request)

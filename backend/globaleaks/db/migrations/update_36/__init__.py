@@ -10,13 +10,11 @@ from urlparse import urlparse
 
 class MigrationScript(MigrationBase):
     def epilogue(self):
-        print "a"
         nf = NodeFactory(self.store_new, 0)
-        nf.config_class = self.model_from['Config']
+        nf.model_class = self.model_from['Config']
         url = nf.get_val('public_site')
         o = urlparse(url)
         domain = o.hostname if not o.hostname is None else ''
-        print "b"
 
         del_config(self.store_new, self.model_from['Config'], u'node', u'public_site')
         add_raw_config(self.store_new, self.model_from['Config'], u'node', u'hostname', domain != '', unicode(domain))

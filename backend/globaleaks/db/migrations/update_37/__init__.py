@@ -1,5 +1,6 @@
 # -*- coding: UTF-8
 
+from storm.expr import And
 from storm.locals import Bool, Int, Reference, ReferenceSet, Unicode, Storm, JSON
 
 
@@ -7,14 +8,16 @@ from globaleaks.db.migrations.update import MigrationBase
 from globaleaks.models.validators import shorttext_v, longtext_v, \
     shortlocal_v, longlocal_v, shorturl_v, longurl_v, natnum_v, range_v
 from globaleaks.models import *
+from globaleaks.models.config_desc import GLConfig
 from globaleaks.utils.utility import datetime_now
 
 from urlparse import urlparse
 
-class Config_v_36(Model):
+class Config_v_36(Storm):
     __storm_table__ = 'config'
     __storm_primary__ = ('var_group', 'var_name')
 
+    cfg_desc = GLConfig
     var_group = Unicode()
     var_name = Unicode()
     value = JSON()
@@ -73,6 +76,51 @@ class Config_v_36(Model):
         return "<Config: %s.%s>" % (self.var_group, self.var_name)
 
 
+class ConfigL10N_v_36(Storm):
+    __storm_table__ = 'config_l10n'
+    __storm_primary__ = ('lang', 'var_group', 'var_name')
+
+    lang = Unicode()
+    var_group = Unicode()
+    var_name = Unicode()
+    value = Unicode()
+    customized = Bool(default=False)
+
+    def __init__(self, lang_code=None, group=None, var_name=None, value='', migrate=False):
+        if migrate:
+            return
+
+        self.lang = unicode(lang_code)
+        self.var_group = unicode(group)
+        self.var_name = unicode(var_name)
+        self.value = unicode(value)
+
+    def __repr__(self):
+      return "<ConfigL10N %s::%s.%s::'%s'>" % (self.lang, self.var_group,
+                                               self.var_name, self.value[:5])
+
+    def set_v(self, value):
+        value = unicode(value)
+        if self.value != value:
+            self.value = value
+            self.customized = True
+
+    def reset(self, new_value):
+        self.set_v(new_value)
+        self.customized = False
+
+    @classmethod
+    def retrieve_rows(cls, store, tid, lang_code, var_group):
+        selector = And(cls.var_group == var_group,
+                       cls.lang == unicode(lang_code))
+        return [r for r in store.find(cls, selector)]
+
+    @classmethod
+    def _where_is(cls, tid, lang_code, var_group, var_name):
+        return And(cls.lang == unicode(lang_code),
+                   cls.var_group == var_group,
+                   cls.var_name == unicode(var_name))
+
 
 class MigrationScript(MigrationBase):
     def generic_migration_function(self, model_name):
@@ -82,10 +130,12 @@ class MigrationScript(MigrationBase):
             new_obj = self.model_to[model_name](migrate=True)
 
             for _, v in new_obj._storm_columns.iteritems():
-                self.migrate_model_key(old_obj, new_obj, v.name)
-
-                if v.name == 'tid' and model_name == 'Config':
+                if v.name == 'tid' and model_name in ['Config', 'ConfigL10N']:
                     new_obj.tid = 0
-                    print "ok"
+                else:
+                    self.migrate_model_key(old_obj, new_obj, v.name)
 
             self.store_new.add(new_obj)
+
+    def epilogue(self):
+        self.store_new.add(Tenant({'label': 'antani'}))

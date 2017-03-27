@@ -71,7 +71,7 @@ class TestConfigUpdates(unittest.TestCase):
 
         # place a dummy version in the current db
         store = Store(create_database(GLSettings.db_uri))
-        prv = config.PrivateFactory(store)
+        prv = config.PrivateFactory(store, 0)
         self.dummy_ver = '2.XX.XX'
         prv.set_val('version', self.dummy_ver)
         self.assertEqual(prv.get_val('version'), self.dummy_ver)
@@ -106,7 +106,7 @@ class TestConfigUpdates(unittest.TestCase):
         migration.perform_data_update(self.db_file)
 
         store = Store(create_database(GLSettings.db_uri))
-        prv = config.PrivateFactory(store)
+        prv = config.PrivateFactory(store, 0)
         self.assertEqual(prv.get_val('version'), __version__)
         self.assertEqual(prv.get_val('xx_smtp_password'), self.dp)
         ret = config.is_cfg_valid(store)
@@ -117,7 +117,7 @@ class TestConfigUpdates(unittest.TestCase):
         migration.perform_data_update(self.db_file)
 
         store = Store(create_database(GLSettings.db_uri))
-        prv = config.PrivateFactory(store)
+        prv = config.PrivateFactory(store, 0)
         self.assertEqual(prv.get_val('version'), __version__)
         store.close()
 
@@ -129,7 +129,7 @@ class TestConfigUpdates(unittest.TestCase):
 
         # Ensure the rollback has succeeded
         store = Store(create_database(GLSettings.db_uri))
-        prv = config.PrivateFactory(store)
+        prv = config.PrivateFactory(store, 0)
         self.assertEqual(prv.get_val('version'), self.dummy_ver)
         store.close()
 
@@ -140,14 +140,14 @@ class TestConfigUpdates(unittest.TestCase):
         self.assertRaises(IOError, migration.perform_data_update, self.db_file)
 
         store = Store(create_database(GLSettings.db_uri))
-        prv = config.PrivateFactory(store)
+        prv = config.PrivateFactory(store, 0)
         self.assertEqual(prv.get_val('version'), self.dummy_ver)
         store.close()
 
     def test_trim_value_to_range(self):
         store = Store(create_database(GLSettings.db_uri))
 
-        nf = config.NodeFactory(store)
+        nf = config.NodeFactory(store, 0)
         fake_cfg = nf.get_cfg('wbtip_timetolive')
 
         self.assertRaises(errors.InvalidModelInput, fake_cfg.set_v, 3650)
@@ -231,6 +231,7 @@ class TestMigrationRegression(unittest.TestCase):
         self._initStartDB(34)
 
         notification_l10n = NotificationL10NFactory(self.store)
+        notification_l10n.model_class = migration.ConfigL10N_v_36
 
         t0 = notification_l10n.get_val('export_template', 'it')
 
@@ -244,7 +245,8 @@ class TestMigrationRegression(unittest.TestCase):
 
         # place a dummy version in the current db
         store = Store(create_database(GLSettings.db_uri))
-        prv = config.PrivateFactory(store)
+        prv = config.PrivateFactory(store, 0)
+        prv.model_class = migration.Config_v_36
         self.dummy_ver = '2.XX.XX'
         prv.set_val('version', self.dummy_ver)
         self.assertEqual(prv.get_val('version'), self.dummy_ver)
@@ -255,6 +257,7 @@ class TestMigrationRegression(unittest.TestCase):
 
         store = Store(create_database(GLSettings.db_uri))
         notification_l10n = NotificationL10NFactory(store)
+        notificatiin_l10n.model_class = migration.Config_v_36
         t2 = notification_l10n.get_val('export_template', 'it')
         self.assertEqual(t2, t0)
         store.commit()

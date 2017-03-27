@@ -1,5 +1,5 @@
 from storm.expr import And, Not
-from storm.locals import Storm, Bool, Unicode, JSON
+from storm.locals import Storm, Bool, Int, Unicode, JSON
 
 from globaleaks import __version__
 from globaleaks.models import ModelWithTID
@@ -76,11 +76,11 @@ class ConfigFactory(object):
     """
     This factory depends on the following attributes set by the sub class:
     """
-    config_class = Config
     update_set = frozenset() # keys updated when fact.update(d) is called
     group_desc = dict() # the corresponding dict in GLConfig
 
     def __init__(self, store, tid, group, lazy=True, *args, **kwargs):
+        self.model_class = Config
         self.tid = tid
         self.group = unicode(group)
         self.store = store
@@ -92,8 +92,8 @@ class ConfigFactory(object):
         if self.res is not None:
             return
 
-        cur = self.store.find(self.config_class, And(self.config_class.tid == self.tid,
-                                                     self.config_class.var_group == self.group))
+        cur = self.store.find(self.model_class, And(self.model_class.tid == self.tid,
+                                                    self.model_class.var_group == self.group))
         self.res = {c.var_name: c for c in cur}
 
     def update(self, request):
@@ -105,8 +105,8 @@ class ConfigFactory(object):
 
     def get_cfg(self, var_name):
         if self.res is None:
-            where = And(self.config_class.var_group == self.group, self.config_class.var_name == unicode(var_name))
-            r = self.store.find(self.config_class, where).one()
+            where = And(self.model_class.var_group == self.group, self.model_class.var_name == unicode(var_name))
+            r = self.store.find(self.model_class, where).one()
             if r is None:
                 raise KeyError("No such config item: %s:%s" % (self.group, var_name))
             return r
@@ -129,26 +129,22 @@ class ConfigFactory(object):
         return {k : self.res[k].get_v() for k in safe_set}
 
     def db_corresponds(self):
-        print "c"
         self.res = None
         try:
             self._query_group()
         except ValueError:
             return False
 
-        print "a"
         k = set(self.res.keys())
-        print "c"
         g = set(self.group_desc)
 
         if k != g:
             return False
 
-        print "d"
         return True
 
     def clean_and_add(self):
-        cur = self.store.find(self.config_class, self.config_class.var_group == self.group)
+        cur = self.store.find(self.model_class, self.model_class.var_group == self.group)
         res = {c.var_name : c for c in cur}
 
         actual = set(self.res.keys())
@@ -158,7 +154,7 @@ class ConfigFactory(object):
 
         for key in missing:
             desc = self.group_desc[key]
-            c = self.config_class(self.group, key, desc.default)
+            c = self.model_class(self.group, key, desc.default)
             self.store.add(c)
 
         extra = actual - allowed
@@ -281,16 +277,13 @@ def del_cfg_not_in_groups(store):
 
 def is_cfg_valid(store):
     for fact_model in factories:
-        print fact_model
         if not fact_model(store, 0).db_corresponds():
             return False
-        print "b"
 
     s = {r.var_group for r in store.find(Config).group_by(Config.var_group)}
     if s != set(GLConfig.keys()):
         return False
 
-    print True
     return True
 
 
@@ -305,9 +298,7 @@ def update_defaults(store):
         del_cfg_not_in_groups(store)
 
     # Set the system version to the current aligned cfg
-    print "a"
     prv = PrivateFactory(store, 0)
-    print prv
     prv.set_val('version', __version__)
 
 
@@ -329,8 +320,8 @@ def load_tls_dict(store):
     return tls_cfg
 
 
-def add_raw_config(store, config_class, group, name, customized, value):
-    c = config_class(migrate=True)
+def add_raw_config(store, model_class, group, name, customized, value):
+    c = model_class(migrate=True)
     c.var_group = group
     c.var_name =  name
     c.customixed = customized
@@ -338,5 +329,5 @@ def add_raw_config(store, config_class, group, name, customized, value):
     store.add(c)
 
 
-def del_config(store, config_class, group, name):
-    store.find(config_class, config_class.var_group == group, config_class.var_name == name).remove()
+def del_config(store, model_class, group, name):
+    store.find(model_class, model_class.var_group == group, model_class.var_name == name).remove()
