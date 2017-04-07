@@ -10,7 +10,7 @@ from twisted.internet import defer, reactor
 from globaleaks.models.config import PrivateFactory, load_tls_dict
 from globaleaks.orm import transact
 from globaleaks.utils import tls
-from globaleaks.utils.utility import log, datetime_now, datetime_to_ISO8601
+from globaleaks.utils.utility import log, datetime_now, datetime_to_ISO8601, randint
 from globaleaks.workers.process import HTTPSProcProtocol
 
 
@@ -39,9 +39,9 @@ class ProcessSupervisor(object):
         self.worker_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'https_worker.py')
 
         self.tls_cfg = {
-          'proxy_ip': proxy_ip,
-          'proxy_port': proxy_port,
-          'debug': log.loglevel <= logging.DEBUG,
+            'proxy_ip': proxy_ip,
+            'proxy_port': proxy_port,
+            'debug': log.loglevel <= logging.DEBUG,
         }
 
         if len(net_sockets) == 0:

@@ -5,13 +5,28 @@ import sys
 if os.path.dirname(__file__) != '/usr/lib/python2.7/dist-packages/globaleaks/workers':
     sys.path.insert(1, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-from twisted.internet import reactor
+from twisted.internet import reactor, unix
+from twisted.spread import pb
 
 from globaleaks.workers.process import Process
 from globaleaks.utils.sock import listen_tls_on_sock
 from globaleaks.utils.sni import SNIMap
 from globaleaks.utils.tls import TLSServerContextFactory, ChainValidator
 from globaleaks.utils.httpsproxy import HTTPStreamFactory
+
+class ControlPanel(pb.Root):
+
+    def __init__(self):
+        print('Starting up')
+
+    def remote_do_something(self, st):
+        print('printing: ', st)
+        #print('doing math:', st.print_sqrt(24))
+        return 'Success 200 OK!!'
+
+    def remote_shutdown(self, t):
+        print('shutting down in %d' % t)
+        reactor.callLater(t, reactor.stop)
 
 
 class HTTPSProcess(Process):
@@ -21,8 +36,18 @@ class HTTPSProcess(Process):
     def __init__(self, *args, **kwargs):
         super(HTTPSProcess, self).__init__(*args, **kwargs)
 
+        # Startup control panel listener
+        #fd = self.cfg['unix_control_sock_fd']
+        path = self.cfg['unix_control_sock']
+        cpanel_factory = pb.PBServerFactory(ControlPanel())
+
+        #uport = unix.Port(path, cpanel_factory)
+        #up.startListening()
+        reactor.listenUNIX(path, cpanel_factory)
+
         proxy_url = 'http://' + self.cfg['proxy_ip'] + ':' + str(self.cfg['proxy_port'])
 
+        # TODO(tid_me) management of TLS contexts must move out of __init__
         http_proxy_factory = HTTPStreamFactory(proxy_url)
 
         cv = ChainValidator()
@@ -39,6 +64,7 @@ class HTTPSProcess(Process):
 
         socket_fds = self.cfg['tls_socket_fds']
 
+        '''
         for socket_fd in socket_fds:
             self.log("Opening socket: %d : %s" % (socket_fd, os.fstat(socket_fd)))
 
@@ -49,6 +75,7 @@ class HTTPSProcess(Process):
 
             self.ports.append(port)
             self.log("HTTPS proxy listening on %s" % port)
+        '''
 
     def shutdown(self):
         for port in self.ports:
