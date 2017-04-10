@@ -67,4 +67,4 @@ class TestContextInstance(helpers.TestHandlerWithPopulatedDB):
         handler = self.request(self.dummyContext, role='admin')
         yield handler.delete(self.dummyContext['id'])
         yield self.assertFailure(handler.get(self.dummyContext['id']),
-                                 errors.ContextIdNotFound)
+                                 errors.ModelNotFound)

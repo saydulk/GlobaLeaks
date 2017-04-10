@@ -3,6 +3,7 @@ import copy
 
 from twisted.internet.defer import inlineCallbacks
 
+from globaleaks.constants import FIRST_TENANT
 from globaleaks.handlers import admin
 from globaleaks.handlers.admin.context import create_context
 from globaleaks.handlers.admin.step import create_step
@@ -18,7 +19,7 @@ class TestStepCollection(helpers.TestHandler):
             """
             Attempt to create a new step via a post request.
             """
-            context = yield create_context(copy.deepcopy(self.dummyContext), 'en')
+            context = yield create_context(FIRST_TENANT, copy.deepcopy(self.dummyContext), 'en')
             step = helpers.get_dummy_step()
             step['questionnaire_id'] = context['questionnaire_id']
             handler = self.request(step, role='admin')
@@ -38,10 +39,10 @@ class TestStepInstance(helpers.TestHandler):
             """
             Create a new step, then get it back using the received id.
             """
-            context = yield create_context(copy.deepcopy(self.dummyContext), 'en')
+            context = yield create_context(FIRST_TENANT, copy.deepcopy(self.dummyContext), 'en')
             step = helpers.get_dummy_step()
             step['questionnaire_id'] = context['questionnaire_id']
-            step = yield create_step(step, 'en')
+            step = yield create_step(FIRST_TENANT, step, 'en')
 
             handler = self.request(role='admin')
             yield handler.get(step['id'])
@@ -53,10 +54,10 @@ class TestStepInstance(helpers.TestHandler):
             """
             Attempt to update a step, changing it presentation order
             """
-            context = yield create_context(copy.deepcopy(self.dummyContext), 'en')
+            context = yield create_context(FIRST_TENANT, copy.deepcopy(self.dummyContext), 'en')
             step = helpers.get_dummy_step()
             step['questionnaire_id'] = context['questionnaire_id']
-            step = yield create_step(step, 'en')
+            step = yield create_step(FIRST_TENANT, step, 'en')
 
             step['presentation_order'] = 666
 
@@ -71,13 +72,11 @@ class TestStepInstance(helpers.TestHandler):
             """
             Create a new step, then attempt to delete it.
             """
-            context = yield create_context(copy.deepcopy(self.dummyContext), 'en')
+            context = yield create_context(FIRST_TENANT, copy.deepcopy(self.dummyContext), 'en')
             step = helpers.get_dummy_step()
             step['questionnaire_id'] = context['questionnaire_id']
-            step = yield create_step(step, 'en')
+            step = yield create_step(FIRST_TENANT, step, 'en')
 
             handler = self.request(role='admin')
             yield handler.delete(step['id'])
             self.assertEqual(handler.get_status(), 200)
-            # second deletion operation should fail
-            yield self.assertFailure(handler.delete(step['id']), errors.StepIdNotFound)

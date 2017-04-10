@@ -2,6 +2,7 @@ import os
 
 from twisted.trial.unittest import TestCase
 
+from globaleaks.constants import ROOT_TENANT
 from globaleaks.models.config import PrivateFactory
 from globaleaks.orm import transact
 from globaleaks.utils import tls
@@ -32,7 +33,7 @@ def get_valid_setup():
 def commit_valid_config(store):
     cfg = get_valid_setup()
 
-    priv_fact = PrivateFactory(store)
+    priv_fact = PrivateFactory(store, ROOT_TENANT)
     priv_fact.set_val('https_dh_params', cfg['dh_params'])
     priv_fact.set_val('https_priv_key', cfg['key'])
     priv_fact.set_val('https_cert', cfg['cert'])

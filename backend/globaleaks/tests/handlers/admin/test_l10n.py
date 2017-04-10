@@ -3,6 +3,7 @@ import json
 
 from twisted.internet.defer import inlineCallbacks
 
+from globaleaks.constants import FIRST_TENANT
 from globaleaks.handlers.admin import l10n as admin_l10n
 from globaleaks.tests import helpers
 
@@ -25,25 +26,25 @@ class TestAdminL10NHandler(helpers.TestHandler):
 
     @inlineCallbacks
     def test_put(self):
-        check = yield admin_l10n.get_custom_texts(u'en')
+        check = yield admin_l10n.get_custom_texts(FIRST_TENANT, u'en')
         self.assertEqual(empty_texts, check)
 
         handler = self.request({}, role='admin', body=json.dumps(custom_texts))
 
         yield handler.put(lang=u'en')
 
-        check = yield admin_l10n.get_custom_texts(u'en')
+        check = yield admin_l10n.get_custom_texts(FIRST_TENANT, u'en')
         self.assertEqual(custom_texts, check)
 
     @inlineCallbacks
     def test_delete(self):
         yield self.test_put()
 
-        check = yield admin_l10n.get_custom_texts(u'en')
+        check = yield admin_l10n.get_custom_texts(FIRST_TENANT, u'en')
         self.assertEqual(custom_texts, check)
 
         handler = self.request({}, role='admin')
         handler.delete(lang=u'en')
 
-        check = yield admin_l10n.get_custom_texts(u'en')
+        check = yield admin_l10n.get_custom_texts(FIRST_TENANT, u'en')
         self.assertEqual(empty_texts, check)

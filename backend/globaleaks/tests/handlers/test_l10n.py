@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from twisted.internet.defer import inlineCallbacks
 
+from globaleaks.constants import FIRST_TENANT
 from globaleaks.handlers import l10n
 from globaleaks.handlers.admin import l10n as admin_l10n
 from globaleaks.rest.apicache import GLApiCache
@@ -22,7 +23,7 @@ class TestL10NHandler(helpers.TestHandler):
 
         self.assertNotIn('12345', self.responses[0])
 
-        yield admin_l10n.update_custom_texts(u'en', custom_texts)
+        yield admin_l10n.update_custom_texts(FIRST_TENANT, u'en', custom_texts)
 
         GLApiCache.invalidate('l10n')
 

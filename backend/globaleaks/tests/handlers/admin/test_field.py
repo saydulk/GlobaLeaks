@@ -4,6 +4,7 @@ import copy
 from twisted.internet.defer import inlineCallbacks
 
 from globaleaks import models
+from globaleaks.constants import FIRST_TENANT
 from globaleaks.handlers import admin
 from globaleaks.handlers.admin.context import create_context
 from globaleaks.handlers.admin.field import create_field
@@ -27,7 +28,7 @@ class TestFieldCreate(helpers.TestHandler):
             """
             values = helpers.get_dummy_field()
             values['instance'] = 'instance'
-            context = yield create_context(self.dummyContext, 'en')
+            context = yield create_context(FIRST_TENANT, self.dummyContext, 'en')
             values['step_id'] = yield get_id_of_first_step_of_questionnaire(context['questionnaire_id'])
             handler = self.request(values, role='admin')
             yield handler.post()
@@ -44,13 +45,13 @@ class TestFieldCreate(helpers.TestHandler):
             """
             values = helpers.get_dummy_field()
             values['instance'] = 'template'
-            field_template = yield create_field(values, 'en')
+            question = yield create_field(FIRST_TENANT, values, 'en')
 
-            context = yield create_context(copy.deepcopy(self.dummyContext), 'en')
+            context = yield create_context(FIRST_TENANT, copy.deepcopy(self.dummyContext), 'en')
 
             values = helpers.get_dummy_field()
             values['instance'] = 'reference'
-            values['template_id'] = field_template['id']
+            values['reference_id'] = question['id']
             values['step_id'] = yield get_id_of_first_step_of_questionnaire(context['questionnaire_id'])
 
             handler = self.request(values, role='admin')
@@ -72,9 +73,9 @@ class TestFieldInstance(helpers.TestHandler):
             """
             values = helpers.get_dummy_field()
             values['instance'] = 'instance'
-            context = yield create_context(copy.deepcopy(self.dummyContext), 'en')
+            context = yield create_context(FIRST_TENANT, copy.deepcopy(self.dummyContext), 'en')
             values['step_id'] = yield get_id_of_first_step_of_questionnaire(context['questionnaire_id'])
-            field = yield create_field(values, 'en')
+            field = yield create_field(FIRST_TENANT, values, 'en')
 
             handler = self.request(role='admin')
             yield handler.get(field['id'])
@@ -88,13 +89,13 @@ class TestFieldInstance(helpers.TestHandler):
             """
             values = helpers.get_dummy_field()
             values['instance'] = 'instance'
-            context = yield create_context(copy.deepcopy(self.dummyContext), 'en')
+            context = yield create_context(FIRST_TENANT, copy.deepcopy(self.dummyContext), 'en')
             values['step_id'] = yield get_id_of_first_step_of_questionnaire(context['questionnaire_id'])
-            field = yield create_field(values, 'en')
+            field = yield create_field(FIRST_TENANT, values, 'en')
 
             updated_sample_field = helpers.get_dummy_field()
             updated_sample_field['instance'] = 'instance'
-            context = yield create_context(copy.deepcopy(self.dummyContext), 'en')
+            context = yield create_context(FIRST_TENANT, copy.deepcopy(self.dummyContext), 'en')
             updated_sample_field['step_id'] = yield get_id_of_first_step_of_questionnaire(context['questionnaire_id'])
             updated_sample_field.update(type='inputbox')
             handler = self.request(updated_sample_field, role='admin')
@@ -117,15 +118,15 @@ class TestFieldInstance(helpers.TestHandler):
             """
             values = helpers.get_dummy_field()
             values['instance'] = 'instance'
-            context = yield create_context(copy.deepcopy(self.dummyContext), 'en')
+            context = yield create_context(FIRST_TENANT, copy.deepcopy(self.dummyContext), 'en')
             values['step_id'] = yield get_id_of_first_step_of_questionnaire(context['questionnaire_id'])
-            field = yield create_field(values, 'en')
+            field = yield create_field(FIRST_TENANT, values, 'en')
 
             handler = self.request(role='admin')
             yield handler.delete(field['id'])
             self.assertEqual(handler.get_status(), 200)
             # second deletion operation should fail
-            yield self.assertFailure(handler.delete(field['id']), errors.FieldIdNotFound)
+            yield self.assertFailure(handler.delete(field['id']), errors.ModelNotFound)
 
 
 class TestFieldTemplateInstance(helpers.TestHandlerWithPopulatedDB):
@@ -138,7 +139,7 @@ class TestFieldTemplateInstance(helpers.TestHandlerWithPopulatedDB):
             """
             values = helpers.get_dummy_field()
             values['instance'] = 'template'
-            field = yield create_field(values, 'en')
+            field = yield create_field(FIRST_TENANT, values, 'en')
 
             handler = self.request(role='admin')
             yield handler.get(field['id'])
@@ -152,7 +153,7 @@ class TestFieldTemplateInstance(helpers.TestHandlerWithPopulatedDB):
             """
             values = helpers.get_dummy_field()
             values['instance'] = 'template'
-            field = yield create_field(values, 'en')
+            field = yield create_field(FIRST_TENANT, values, 'en')
 
             updated_sample_field = helpers.get_dummy_field()
             updated_sample_field['instance'] = 'template'
@@ -175,13 +176,13 @@ class TestFieldTemplateInstance(helpers.TestHandlerWithPopulatedDB):
             """
             values = helpers.get_dummy_field()
             values['instance'] = 'template'
-            field = yield create_field(values, 'en')
+            field = yield create_field(FIRST_TENANT, values, 'en')
 
             handler = self.request(role='admin')
             yield handler.delete(field['id'])
             self.assertEqual(handler.get_status(), 200)
             # second deletion operation should fail
-            yield self.assertFailure(handler.delete(field['id']), errors.FieldIdNotFound)
+            yield self.assertFailure(handler.delete(field['id']), errors.ModelNotFound)
 
 
 class TestFieldTemplatesCollection(helpers.TestHandlerWithPopulatedDB):

@@ -2,6 +2,7 @@
 
 from twisted.internet.defer import inlineCallbacks
 
+from globaleaks.constants import FIRST_TENANT
 from globaleaks.handlers import admin, rtip
 from globaleaks.jobs.delivery_sched import DeliverySchedule
 from globaleaks.tests import helpers
@@ -17,9 +18,9 @@ class notifTemplateTest(helpers.TestGLWithPopulatedDB):
         data = {}
         data['type'] = 'tip'
         data['receiver'] = yield admin.receiver.get_receiver(self.dummyReceiver_1['id'], 'en')
-        data['context'] = yield admin.context.get_context(self.dummyContext['id'], 'en')
-        data['notification'] = yield admin.notification.get_notification('en')
-        data['node'] = yield admin.node.admin_serialize_node('en')
+        data['context'] = yield admin.context.get_context(FIRST_TENANT, self.dummyContext['id'], 'en')
+        data['notification'] = yield admin.notification.get_notification(FIRST_TENANT, 'en')
+        data['node'] = yield admin.node.admin_serialize_node(FIRST_TENANT, 'en')
 
         if self.dummyRTips[0]['receiver_id'] == self.dummyReceiver_1['id']:
             tip_id = self.dummyRTips[0]['id']

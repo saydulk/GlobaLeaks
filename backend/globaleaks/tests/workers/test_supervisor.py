@@ -13,9 +13,10 @@ from twisted.internet import threads, reactor
 from twisted.internet.defer import inlineCallbacks, Deferred
 from twisted.internet.protocol import ProcessProtocol
 
+from globaleaks.constants import ROOT_TENANT
 from globaleaks.models.config import PrivateFactory, load_tls_dict
 from globaleaks.utils.sock import reserve_port_for_ip
-from globaleaks.orm import transact
+from globaleaks.orm import transact, wrap_db_tx
 from globaleaks.workers import supervisor, process
 from globaleaks.workers.https_worker import HTTPSProcess
 
@@ -24,7 +25,7 @@ from globaleaks.tests.utils import test_tls
 
 @transact
 def toggle_https(store, enabled):
-    PrivateFactory(store).set_val('https_enabled', enabled)
+    PrivateFactory(store, ROOT_TENANT).set_val('https_enabled', enabled)
 
 class TestProcessSupervisor(helpers.TestGL):
     @inlineCallbacks
@@ -70,10 +71,6 @@ class TestProcessSupervisor(helpers.TestGL):
         self.assertFalse(p_s.is_running())
 
 
-@transact
-def wrap_db_tx(store, f, *args, **kwargs):
-    return f(store, *args, **kwargs)
-
 class TestSubprocessRun(helpers.TestGL):
 
     @inlineCallbacks
@@ -96,7 +93,7 @@ class TestSubprocessRun(helpers.TestGL):
             'tls_socket_fds': [sock.fileno() for sock in self.https_socks],
             'debug': False,
         }
-        db_cfg = yield wrap_db_tx(load_tls_dict)
+        db_cfg = yield wrap_db_tx(load_tls_dict, ROOT_TENANT)
         valid_cfg.update(db_cfg)
 
         tmp = tempfile.TemporaryFile()

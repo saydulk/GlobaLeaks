@@ -1,4 +1,5 @@
 """
+from globaleaks.models import l10n, properties
 Test database migrations.
 
 for each version one an empty and a populated db must be stored in directories:
@@ -14,19 +15,19 @@ from storm.locals import create_database, Store
 from twisted.trial import unittest
 
 from globaleaks import __version__, DATABASE_VERSION, FIRST_DATABASE_VERSION_SUPPORTED
+from globaleaks.constants import ROOT_TENANT
 from globaleaks.db import migration, update_db
 from globaleaks.db.migrations.update import MigrationBase
 from globaleaks.handlers.admin.field import db_create_field
 from globaleaks.models import config, Field
 from globaleaks.models.config_desc import GLConfig
-from globaleaks.models.l10n import EnabledLanguage, NotificationL10NFactory
+from globaleaks.models.l10n import EnabledLanguage, NotificationL10NFactory, ConfigL10N
 from globaleaks.settings import GLSettings
 from globaleaks.tests import helpers, config as test_config
 from globaleaks.rest import errors
 
 
 class TestMigrationRoutines(unittest.TestCase):
-
     def setUp(self):
         test_config.skipIf('migration')
 
@@ -60,7 +61,7 @@ class TestMigrationRoutines(unittest.TestCase):
             raw_lst = re.findall(r'CREATE TABLE (\w+)', s)
             db_table_names = set()
             for name in raw_lst:
-                db_table_names.add(name.replace('_', ''))
+                db_table_names.add(name)
 
         diff = db_table_names - mig_class_names
         self.assertTrue(len(diff) == 0)
@@ -92,7 +93,7 @@ class TestConfigUpdates(unittest.TestCase):
 
         # place a dummy version in the current db
         store = Store(create_database(GLSettings.db_uri))
-        prv = config.PrivateFactory(store)
+        prv = config.PrivateFactory(store, ROOT_TENANT)
         self.dummy_ver = '2.XX.XX'
         prv.set_val('version', self.dummy_ver)
         self.assertEqual(prv.get_val('version'), self.dummy_ver)
@@ -111,7 +112,7 @@ class TestConfigUpdates(unittest.TestCase):
 
     def test_migration_error_with_removed_language(self):
         store = Store(create_database(GLSettings.db_uri))
-        zyx = EnabledLanguage('zyx')
+        zyx = EnabledLanguage({'tid': ROOT_TENANT, 'name': 'zyx'})
         store.add(zyx)
         store.commit()
         store.close()
@@ -120,17 +121,17 @@ class TestConfigUpdates(unittest.TestCase):
 
     def test_detect_and_fix_cfg_change(self):
         store = Store(create_database(GLSettings.db_uri))
-        ret = config.is_cfg_valid(store)
+        ret = config.is_cfg_valid(store, ROOT_TENANT)
         self.assertFalse(ret)
         store.close()
 
         migration.perform_data_update(self.db_file)
 
         store = Store(create_database(GLSettings.db_uri))
-        prv = config.PrivateFactory(store)
+        prv = config.PrivateFactory(store, ROOT_TENANT)
         self.assertEqual(prv.get_val('version'), __version__)
         self.assertEqual(prv.get_val('xx_smtp_password'), self.dp)
-        ret = config.is_cfg_valid(store)
+        ret = config.is_cfg_valid(store, ROOT_TENANT)
         self.assertTrue(ret)
         store.close()
 
@@ -138,7 +139,7 @@ class TestConfigUpdates(unittest.TestCase):
         migration.perform_data_update(self.db_file)
 
         store = Store(create_database(GLSettings.db_uri))
-        prv = config.PrivateFactory(store)
+        prv = config.PrivateFactory(store, ROOT_TENANT)
         self.assertEqual(prv.get_val('version'), __version__)
         store.close()
 
@@ -150,7 +151,7 @@ class TestConfigUpdates(unittest.TestCase):
 
         # Ensure the rollback has succeeded
         store = Store(create_database(GLSettings.db_uri))
-        prv = config.PrivateFactory(store)
+        prv = config.PrivateFactory(store, ROOT_TENANT)
         self.assertEqual(prv.get_val('version'), self.dummy_ver)
         store.close()
 
@@ -161,14 +162,14 @@ class TestConfigUpdates(unittest.TestCase):
         self.assertRaises(IOError, migration.perform_data_update, self.db_file)
 
         store = Store(create_database(GLSettings.db_uri))
-        prv = config.PrivateFactory(store)
+        prv = config.PrivateFactory(store, ROOT_TENANT)
         self.assertEqual(prv.get_val('version'), self.dummy_ver)
         store.close()
 
     def test_trim_value_to_range(self):
         store = Store(create_database(GLSettings.db_uri))
 
-        nf = config.NodeFactory(store)
+        nf = config.NodeFactory(store, ROOT_TENANT)
         fake_cfg = nf.get_cfg('wbtip_timetolive')
 
         self.assertRaises(errors.InvalidModelInput, fake_cfg.set_v, 3650)
@@ -217,55 +218,18 @@ class TestMigrationRegression(unittest.TestCase):
 
         self.store = Store(create_database(GLSettings.db_uri))
 
-    def test_check_field_constraints(self):
-        # This test case asserts that a migration from db ver 32 up to the latest
-        # db with fields that fail the constraints still functions.
-        self._initStartDB(32)
-
-        field_dict = helpers.get_dummy_field()
-        field_dict['instance'] = 'reference'
-        field_dict['step_id'] = None
-        field_dict['field_id'] = None
-
-        db_create_field(self.store, field_dict, u'en')
-
-        field_dict = helpers.get_dummy_field()
-        field_dict['instance'] = 'instance'
-
-        db_create_field(self.store, field_dict, u'en')
-
-        field_dict = helpers.get_dummy_field()
-        field_dict['instance'] = 'template'
-        field_dict['step_id'] = None
-        fld_grp_id = self.store.find(Field, Field.fieldgroup_id is not None)[0].fieldgroup_id
-        field_dict['field_id'] = fld_grp_id
-
-        db_create_field(self.store, field_dict, u'en')
-        self.store.commit()
-
-        ret = update_db()
-        shutil.rmtree(GLSettings.db_path)
-        self.assertNotEqual(ret, -1)
-
     def test_check_unmodifiable_strings(self):
         # This test case asserts that data migration updates unmodifiable l10n strings
-        self._initStartDB(34)
+        self._initStartDB(DATABASE_VERSION)
 
-        notification_l10n = NotificationL10NFactory(self.store)
-
-        t0 = notification_l10n.get_val('export_template', 'it')
-
-        notification_l10n.set_val('export_template', 'it', '')
-
-        t1 = notification_l10n.get_val('export_template', 'it')
-
-        self.assertEqual(t1, '')
-
+        notification_l10n = NotificationL10NFactory(self.store, ROOT_TENANT)
+        notification_l10n.set_val('export_template', 'en', 'XXX')
         self.store.commit()
+        self.store.close()
 
         # place a dummy version in the current db
         store = Store(create_database(GLSettings.db_uri))
-        prv = config.PrivateFactory(store)
+        prv = config.PrivateFactory(store, ROOT_TENANT)
         self.dummy_ver = '2.XX.XX'
         prv.set_val('version', self.dummy_ver)
         self.assertEqual(prv.get_val('version'), self.dummy_ver)
@@ -275,9 +239,9 @@ class TestMigrationRegression(unittest.TestCase):
         migration.perform_data_update(self.db_file)
 
         store = Store(create_database(GLSettings.db_uri))
-        notification_l10n = NotificationL10NFactory(store)
-        t2 = notification_l10n.get_val('export_template', 'it')
-        self.assertEqual(t2, t0)
+        notification_l10n = NotificationL10NFactory(store, ROOT_TENANT)
+        v = notification_l10n.get_val('export_template', 'en')
+        self.assertNotEqual(v, 'XXX')
         store.commit()
         store.close()
 
