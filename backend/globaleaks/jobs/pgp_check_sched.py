@@ -1,9 +1,9 @@
 # -*- encoding: utf-8 -*-
 # Implements periodic checks in order to verify pgp key status and other consistencies:
-
 from datetime import timedelta
 
 from globaleaks import models
+from globaleaks.constants import FIRST_TENANT
 from globaleaks.handlers.admin.node import db_admin_serialize_node
 from globaleaks.handlers.admin.notification import db_get_notification
 from globaleaks.handlers.admin.user import db_get_admin_users
@@ -35,13 +35,13 @@ class PGPCheckSchedule(GLJob):
          return (3600 * 24) - (current_time.hour * 3600) - (current_time.minute * 60) - current_time.second
 
     def prepare_admin_pgp_alerts(self, store, expired_or_expiring):
-        for user_desc in db_get_admin_users(store):
+        for user_desc in db_get_admin_users(store, FIRST_TENANT):
             user_language = user_desc['language']
 
             data = {
                 'type': u'admin_pgp_alert',
-                'node': db_admin_serialize_node(store, user_language),
-                'notification': db_get_notification(store, user_language),
+                'node': db_admin_serialize_node(store, FIRST_TENANT, user_language),
+                'notification': db_get_notification(store, FIRST_TENANT, user_language),
                 'users': expired_or_expiring
             }
 
@@ -59,8 +59,8 @@ class PGPCheckSchedule(GLJob):
 
         data = {
             'type': u'pgp_alert',
-            'node': db_admin_serialize_node(store, user_language),
-            'notification': db_get_notification(store, user_language),
+            'node': db_admin_serialize_node(store, FIRST_TENANT, user_language),
+            'notification': db_get_notification(store, FIRST_TENANT, user_language),
             'user': user_desc
         }
 
@@ -77,7 +77,7 @@ class PGPCheckSchedule(GLJob):
         expired_or_expiring = []
 
         for user in db_get_expired_or_expiring_pgp_users(store):
-            expired_or_expiring.append(user_serialize_user(user, GLSettings.memory_copy.default_language))
+            expired_or_expiring.append(user_serialize_user(store, user, GLSettings.memory_copy.default_language))
 
             if user.pgp_key_expiration < datetime_now():
                 user.pgp_key_public = ''
