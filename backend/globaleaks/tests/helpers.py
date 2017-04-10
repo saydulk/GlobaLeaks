@@ -9,20 +9,22 @@ reload(sys)
 sys.setdefaultencoding('utf8')
 
 from globaleaks import db, models, security, event, jobs
+from globaleaks.constants import FIRST_TENANT
 from globaleaks.anomaly import Alarm
 from globaleaks.db.appdata import load_appdata
 from globaleaks.orm import transact
 from globaleaks.handlers import rtip, wbtip
 from globaleaks.handlers.base import BaseHandler, GLSessions, GLSession, \
     write_upload_encrypted_to_disk
-from globaleaks.handlers.admin.context import create_context, \
-    get_context, db_get_context_steps
+from globaleaks.handlers.admin.context import create_context, get_context
 from globaleaks.handlers.admin.receiver import create_receiver
 from globaleaks.handlers.admin.field import db_create_field
 from globaleaks.handlers.admin.step import create_step
-from globaleaks.handlers.admin.questionnaire import get_questionnaire
+from globaleaks.handlers.admin.questionnaire import get_questionnaire, db_get_questionnaire_steps
+from globaleaks.handlers.admin.tenant import create_tenant
 from globaleaks.handlers.admin.user import create_admin_user, create_custodian_user
 from globaleaks.handlers.submission import create_submission
+from globaleaks.memory import refresh_memory_variables
 from globaleaks.rest.apicache import GLApiCache
 from globaleaks.settings import GLSettings
 from globaleaks.security import GLSecureTemporaryFile
@@ -47,7 +49,6 @@ from twisted.internet.defer import inlineCallbacks
 from twisted.trial import unittest
 from twisted.test import proto_helpers
 from storm.twisted.testing import FakeThreadPool
-
 
 ## constants
 VALID_PASSWORD1 = u'ACollectionOfDiplomaticHistorySince_1966_ToThe_Pr esentDay#'
@@ -120,8 +121,8 @@ def export_fixture(*models):
 
 
 @transact
-def update_node_setting(store, var_name, value):
-    models.config.NodeFactory(store).set_val(var_name, value)
+def update_node_setting(store, tid, var_name, value):
+    models.config.NodeFactory(store, tid).set_val(var_name, value)
 
 
 def get_dummy_step():
@@ -141,9 +142,10 @@ def get_dummy_field():
         'key': '',
         'instance': 'template',
         'editable': True,
-        'template_id': '',
+        'question_id': '',
         'step_id': '',
         'fieldgroup_id': '',
+        'template_id': '',
         'label': u'antani',
         'type': u'inputbox',
         'preview': False,
@@ -218,13 +220,17 @@ class TestGL(unittest.TestCase):
                 os.path.join(GLSettings.working_path, 'db', GLSettings.db_file_name)
             )
         else:
-            yield db.init_db(use_single_lang=True)
+            yield db.init_db()
 
         allow_unencrypted = self.encryption_scenario in ['PLAINTEXT', 'MIXED']
 
-        yield update_node_setting('allow_unencrypted', allow_unencrypted)
+        first_tenant = {'label': 'localhost:8082'}
+        yield create_tenant(first_tenant, load_appdata())
 
-        yield db.refresh_memory_variables()
+        yield update_node_setting(1, 'allow_unencrypted', allow_unencrypted)
+        yield update_node_setting(FIRST_TENANT, 'allow_unencrypted', allow_unencrypted)
+
+        yield refresh_memory_variables()
 
         sup = ProcessSupervisor([], '127.0.0.1', 18082)
         GLSettings.state.process_supervisor = sup
@@ -361,7 +367,9 @@ class TestGL(unittest.TestCase):
         """
         answers = {}
 
-        steps = db_get_context_steps(store, context_id, 'en')
+        context = models.Context.db_get(store, id=context_id)
+
+        steps = db_get_questionnaire_steps(store, context.questionnaire_id, u'en')
 
         for step in steps:
             for field in step['children']:
@@ -380,7 +388,7 @@ class TestGL(unittest.TestCase):
         """
         defer.returnValue({
             'context_id': context_id,
-            'receivers': (yield get_context(context_id, 'en'))['receivers'],
+            'receivers': (yield get_context(FIRST_TENANT, context_id, 'en'))['receivers'],
             'files': [],
             'human_captcha_answer': 0,
             'proof_of_work_answer': 0,
@@ -418,21 +426,19 @@ class TestGL(unittest.TestCase):
             dummyFile['body'].close()
 
     @transact
-    def _exists(self, store, model, *id_args, **id_kwargs):
-        if not id_args and not id_kwargs:
-            raise ValueError
-        return model.get(store, *id_args, **id_kwargs) is not None
+    def _exists(self, store, model, **kwargs):
+        return store.find(model, **kwargs).one() is not None
 
     @inlineCallbacks
-    def assert_model_exists(self, model, *id_args, **id_kwargs):
-        existing = yield self._exists(model, *id_args, **id_kwargs)
-        msg = 'The following has *NOT* been found on the store: {} {}'.format(id_args, id_kwargs)
+    def assert_model_exists(self, model, **kwargs):
+        existing = yield self._exists(model, **kwargs)
+        msg = 'The following has *NOT* been found on the store: {}'.format(kwargs)
         self.assertTrue(existing, msg)
 
     @inlineCallbacks
-    def assert_model_not_exists(self, model, *id_args, **id_kwargs):
-        existing = yield self._exists(model, *id_args, **id_kwargs)
-        msg = 'The following model has been found on the store: {} {}'.format(id_args, id_kwargs)
+    def assert_model_not_exists(self, model, **kwargs):
+        existing = yield self._exists(model, **kwargs)
+        msg = 'The following model has been found on the store: {}'.format(kwargs)
         self.assertFalse(existing, msg)
 
     def pollute_events(self, number_of_times=10):
@@ -509,6 +515,12 @@ class TestGL(unittest.TestCase):
         self.db_test_model_count(store, model, n)
 
 
+class TestGLWithInitialDB(TestGL):
+    @inlineCallbacks
+    def setUp(self):
+        yield TestGL.setUp(self)
+
+
 class TestGLWithPopulatedDB(TestGL):
     complex_field_population = False
     population_of_recipients = 2
@@ -525,21 +537,21 @@ class TestGLWithPopulatedDB(TestGL):
     @inlineCallbacks
     def fill_data(self):
         # fill_data/create_admin
-        self.dummyAdminUser = yield create_admin_user(copy.deepcopy(self.dummyAdminUser), 'en')
+        self.dummyAdminUser = yield create_admin_user(FIRST_TENANT, copy.deepcopy(self.dummyAdminUser), 'en')
 
         # fill_data/create_custodian
-        self.dummyCustodianUser = yield create_custodian_user(copy.deepcopy(self.dummyCustodianUser), 'en')
+        self.dummyCustodianUser = yield create_custodian_user(FIRST_TENANT, copy.deepcopy(self.dummyCustodianUser), 'en')
 
         # fill_data/create_receiver
-        self.dummyReceiver_1 = yield create_receiver(copy.deepcopy(self.dummyReceiver_1), 'en')
+        self.dummyReceiver_1 = yield create_receiver(FIRST_TENANT, copy.deepcopy(self.dummyReceiver_1), 'en')
         self.dummyReceiverUser_1['id'] = self.dummyReceiver_1['id']
-        self.dummyReceiver_2 = yield create_receiver(copy.deepcopy(self.dummyReceiver_2), 'en')
+        self.dummyReceiver_2 = yield create_receiver(FIRST_TENANT, copy.deepcopy(self.dummyReceiver_2), 'en')
         self.dummyReceiverUser_2['id'] = self.dummyReceiver_2['id']
         receivers_ids = [self.dummyReceiver_1['id'], self.dummyReceiver_2['id']]
 
         # fill_data/create_context
         self.dummyContext['receivers'] = receivers_ids
-        self.dummyContext = yield create_context(copy.deepcopy(self.dummyContext), 'en')
+        self.dummyContext = yield create_context(FIRST_TENANT, copy.deepcopy(self.dummyContext), 'en')
 
         self.dummyQuestionnaire = yield get_questionnaire(self.dummyContext['questionnaire_id'], 'en')
 
@@ -547,7 +559,7 @@ class TestGLWithPopulatedDB(TestGL):
         self.dummyQuestionnaire['steps'][1]['questionnaire_id'] = self.dummyContext['questionnaire_id']
         self.dummyQuestionnaire['steps'][1]['label'] = 'Whistleblower identity'
         self.dummyQuestionnaire['steps'][1]['presentation_order'] = 1
-        self.dummyQuestionnaire['steps'][1] = yield create_step(self.dummyQuestionnaire['steps'][1], 'en')
+        self.dummyQuestionnaire['steps'][1] = yield create_step(FIRST_TENANT, self.dummyQuestionnaire['steps'][1], 'en')
 
         if self.complex_field_population:
             yield self.add_whistleblower_identity_field_to_step(self.dummyQuestionnaire['steps'][1]['id'])
@@ -557,10 +569,10 @@ class TestGLWithPopulatedDB(TestGL):
         wbf = store.find(models.Field, models.Field.key == u'whistleblower_identity').one()
 
         reference_field = get_dummy_field()
-        reference_field['instance'] = 'reference'
-        reference_field['template_id'] = wbf.id
+        reference_field['instance'] = 'instance'
+        reference_field['reference_id'] = wbf.id
         reference_field['step_id'] = step_id
-        db_create_field(store, reference_field, 'en')
+        db_create_field(store, FIRST_TENANT, reference_field, 'en')
 
     def perform_submission_start(self):
         self.dummyToken = token.Token('submission')
@@ -578,7 +590,8 @@ class TestGLWithPopulatedDB(TestGL):
         self.dummySubmission['answers'] = yield self.fill_random_answers(self.dummyContext['id'])
         self.dummySubmission['total_score'] = 0
 
-        self.dummySubmission = yield create_submission(self.dummySubmission,
+        self.dummySubmission = yield create_submission(FIRST_TENANT,
+                                                       self.dummySubmission,
                                                        self.dummyToken.uploaded_files,
                                                        True, 'en')
 
@@ -607,7 +620,8 @@ class TestGLWithPopulatedDB(TestGL):
                                       rtip_desc['id'],
                                       messageCreation)
 
-            yield rtip.create_identityaccessrequest(rtip_desc['receiver_id'],
+            yield rtip.create_identityaccessrequest(FIRST_TENANT,
+                                                    rtip_desc['receiver_id'],
                                                     rtip_desc['id'],
                                                     identityaccessrequestCreation,
                                                     'en')
@@ -723,6 +737,11 @@ class TestHandler(TestGLWithPopulatedDB):
         connection.factory = application
         connection.makeConnection(tr)
 
+        if headers is None:
+            headers = {}
+
+        headers['Host'] = 'localhost:8082'
+
         request = httpserver.HTTPRequest(uri='mock',
                                          method=method,
                                          headers=headers,
@@ -755,6 +774,8 @@ class TestHandler(TestGLWithPopulatedDB):
         if role is not None:
             session = GLSession(user_id, role, 'enabled')
             handler.request.headers['X-Session'] = session.id
+
+        handler.prepare()
 
         return handler
 

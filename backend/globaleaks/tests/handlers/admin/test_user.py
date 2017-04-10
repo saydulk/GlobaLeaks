@@ -77,4 +77,4 @@ class TestUserInstance(helpers.TestHandlerWithPopulatedDB):
         handler = self.request(role='admin')
         yield handler.delete(self.dummyReceiverUser_1['id'])
         yield self.assertFailure(handler.get(self.dummyReceiverUser_1['id']),
-                                 errors.UserIdNotFound)
+                                 errors.ModelNotFound)

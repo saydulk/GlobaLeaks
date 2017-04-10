@@ -3,6 +3,7 @@
 from twisted.internet.defer import inlineCallbacks
 
 from globaleaks import models
+from globaleaks.constants import FIRST_TENANT
 from globaleaks.handlers.admin import modelimgs
 from globaleaks.tests import helpers
 
@@ -16,7 +17,7 @@ class TestModelImgInstance(helpers.TestHandlerWithPopulatedDB):
 
         yield handler.post('users', self.dummyReceiverUser_1['id'])
 
-        img = yield modelimgs.get_model_img(models.User, self.dummyReceiverUser_1['id'])
+        img = yield modelimgs.get_model_img('users', self.dummyReceiverUser_1['id'])
         self.assertNotEqual(img, '')
 
     @inlineCallbacks
@@ -24,5 +25,5 @@ class TestModelImgInstance(helpers.TestHandlerWithPopulatedDB):
         handler = self.request({}, role='admin')
         yield handler.delete('users', self.dummyReceiverUser_1['id'])
 
-        img = yield modelimgs.get_model_img(models.User, self.dummyReceiverUser_1['id'])
+        img = yield modelimgs.get_model_img('users', self.dummyReceiverUser_1['id'])
         self.assertEqual(img, '')

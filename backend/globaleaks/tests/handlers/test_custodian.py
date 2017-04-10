@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from twisted.internet.defer import inlineCallbacks
 
+from globaleaks.constants import FIRST_TENANT
 from globaleaks.handlers import custodian
 from globaleaks.tests import helpers
 
@@ -15,7 +16,7 @@ class TestIdentityAccessRequestInstance(helpers.TestHandlerWithPopulatedDB):
 
     @inlineCallbacks
     def test_get_new_identityaccessrequest(self):
-        iars = yield custodian.get_identityaccessrequest_list('en')
+        iars = yield custodian.get_identityaccessrequest_list(FIRST_TENANT, 'en')
 
         handler = self.request(user_id = self.dummyCustodianUser['id'], role='custodian')
 
@@ -23,7 +24,7 @@ class TestIdentityAccessRequestInstance(helpers.TestHandlerWithPopulatedDB):
 
     @inlineCallbacks
     def test_put_identityaccessrequest_response(self):
-        iars = yield custodian.get_identityaccessrequest_list('en')
+        iars = yield custodian.get_identityaccessrequest_list(FIRST_TENANT, 'en')
 
         handler = self.request(user_id = self.dummyCustodianUser['id'], role='custodian')
 

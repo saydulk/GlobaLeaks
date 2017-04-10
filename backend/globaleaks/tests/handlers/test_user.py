@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from twisted.internet.defer import inlineCallbacks
 
+from globaleaks.constants import FIRST_TENANT
 from globaleaks.handlers import admin, user
 from globaleaks.rest import errors
 from globaleaks.tests import helpers
@@ -13,7 +14,7 @@ class TestUserInstance(helpers.TestHandlerWithPopulatedDB):
     def setUp(self):
         yield helpers.TestHandlerWithPopulatedDB.setUp(self)
 
-        self.rcvr_id = (yield admin.receiver.get_receiver_list('en'))[0]['id']
+        self.rcvr_id = (yield admin.receiver.get_receiver_list(FIRST_TENANT, 'en'))[0]['id']
 
     @inlineCallbacks
     def test_get(self):

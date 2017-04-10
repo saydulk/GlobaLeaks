@@ -1,51 +1,49 @@
-# -*- coding: utf-8 -*-
+#  -*- coding: utf-8 -*-
 
 from twisted.internet.defer import inlineCallbacks
 
 from globaleaks import models, LANGUAGES_SUPPORTED
+from globaleaks.constants import FIRST_TENANT
+from globaleaks.db.appdata import load_appdata
 from globaleaks.handlers.admin.questionnaire import db_get_default_questionnaire_id
 from globaleaks.models import config
 from globaleaks.models.config_desc import GLConfig
-from globaleaks.models.l10n import NodeL10NFactory, EnabledLanguage, ConfigL10N
+from globaleaks.models.l10n import NodeL10NFactory, NotificationL10NFactory, EnabledLanguage, ConfigL10N
 from globaleaks.orm import transact
 from globaleaks.tests import helpers
 
 
 class TestSystemConfigModels(helpers.TestGL):
+    @transact
+    def _test_config_import(self, store):
+        c = store.find(config.Config, tid=FIRST_TENANT).count()
+
+        stated_conf = reduce(lambda x,y: x+y, [len(v) for k, v in GLConfig.iteritems()], 0)
+        self.assertEqual(c, stated_conf)
+
     @inlineCallbacks
     def test_config_import(self):
         yield self._test_config_import()
 
     @transact
-    def _test_config_import(self, store):
-        c = store.find(config.Config).count()
-
-        stated_conf = reduce(lambda x,y: x+y, [len(v) for k, v in GLConfig.iteritems()], 0)
-        self.assertEqual(c, stated_conf)
+    def _test_valid_cfg(self, store):
+        self.assertEqual(True, config.is_cfg_valid(store, FIRST_TENANT))
 
     @inlineCallbacks
     def test_valid_config(self):
         yield self._test_valid_cfg()
 
     @transact
-    def _test_valid_cfg(self, store):
-        self.assertEqual(True, config.is_cfg_valid(store))
-
-    @inlineCallbacks
-    def test_missing_config(self):
-        yield self._test_missing_config()
-
-    @transact
     def _test_missing_config(self, store):
-        self.assertEqual(True, config.is_cfg_valid(store))
+        self.assertEqual(True, config.is_cfg_valid(store, FIRST_TENANT))
 
-        p = config.Config('private', 'smtp_password', 'XXXX')
+        p = config.Config(FIRST_TENANT, 'private', 'smtp_password', 'XXXX')
         p.var_group = u'outside'
         store.add(p)
 
-        self.assertEqual(False, config.is_cfg_valid(store))
+        self.assertEqual(False, config.is_cfg_valid(store, FIRST_TENANT))
 
-        node = config.NodeFactory(store)
+        node = config.NodeFactory(store, FIRST_TENANT)
         c = node.get_cfg('hostname')
         store.remove(c)
         store.commit()
@@ -53,71 +51,67 @@ class TestSystemConfigModels(helpers.TestGL):
         self.assertEqual(False, node.db_corresponds())
 
         # Delete all of the vars in Private Factory
-        prv = config.PrivateFactory(store)
+        prv = config.PrivateFactory(store, FIRST_TENANT)
 
         store.execute('DELETE FROM config WHERE var_group = "private"')
 
         self.assertEqual(False, prv.db_corresponds())
 
-        ntfn = config.NotificationFactory(store)
+        ntfn = config.NotificationFactory(store, FIRST_TENANT)
 
-        c = config.Config('notification', 'server', 'guarda.giochi.con.occhi')
+        c = config.Config(FIRST_TENANT, 'notification', 'server', 'guarda.giochi.con.occhi')
         c.var_name = u'anextravar'
         store.add(c)
 
         self.assertEqual(False, ntfn.db_corresponds())
 
-        config.update_defaults(store)
+        config.update_defaults(store, FIRST_TENANT)
 
-        self.assertEqual(True, config.is_cfg_valid(store))
+        self.assertEqual(True, config.is_cfg_valid(store, FIRST_TENANT))
+
+    @inlineCallbacks
+    def test_missing_config(self):
+        yield self._test_missing_config()
 
 
 class TestConfigL10N(helpers.TestGL):
-    @inlineCallbacks
-    def test_config_l10n_init(self):
-        yield self.run_node_mgr()
+    @transact
+    def enable_langs(self, store):
+        appdata = load_appdata()
+
+        key_num = 0
+        for key in GLConfig:
+            key_num += len(GLConfig[key].keys())
+
+        key_num = len(NodeL10NFactory.localized_keys) + len(NotificationL10NFactory.localized_keys)
+
+        res = EnabledLanguage.list(store, FIRST_TENANT)
+        self.assertTrue(len(res) == 1)
+        self.assertTrue([u'en'] == res)
+        self.assertTrue(store.find(ConfigL10N, tid=FIRST_TENANT).count() == key_num)
+
+        EnabledLanguage.enable_language(store, FIRST_TENANT, u'ar', appdata)
+
+        res = EnabledLanguage.list(store, FIRST_TENANT)
+        self.assertTrue(len(res) == 2)
+        self.assertTrue([u'ar', 'en'] == res)
+        self.assertTrue(store.find(ConfigL10N, tid=FIRST_TENANT).count() == key_num * 2)
 
     @transact
-    def run_node_mgr(self, store):
-        # Initialize the Node manager
-        node_l10n = NodeL10NFactory(store)
-        num_trans = len(NodeL10NFactory.localized_keys)
+    def disable_langs(self, store):
+        EnabledLanguage.disable_language(store, FIRST_TENANT, u'en')
 
-        # Make a query with the Node manager
-        ret = node_l10n.retrieve_rows('en')
-
-        self.assertTrue(len(ret) == num_trans)
+        res = EnabledLanguage.list(store, FIRST_TENANT)
+        self.assertTrue(len(res) == 0)
+        self.assertTrue(store.find(ConfigL10N, tid=FIRST_TENANT).count() == 0)
 
     @inlineCallbacks
     def test_enabled_langs(self):
         yield self.enable_langs()
 
-    @transact
-    def enable_langs(self, store):
-        res = EnabledLanguage.list(store)
-
-        self.assertTrue(u'en' in res)
-        self.assertTrue(len(res) == len(LANGUAGES_SUPPORTED))
-
-        c = store.find(ConfigL10N).count()
-        self.assertTrue(c > 1500 and c < 2300)
-
     @inlineCallbacks
     def test_disable_langs(self):
         yield self.disable_langs()
-
-    @transact
-    def disable_langs(self, store):
-        c = len(EnabledLanguage.list(store))
-        i = store.find(ConfigL10N).count()
-        n = i/c
-
-        EnabledLanguage.remove_old_langs(store, [u'en'])
-
-        c_f = len(EnabledLanguage.list(store))
-        i_f = store.find(ConfigL10N).count()
-
-        self.assertTrue(i-i_f == n and c_f == c-1)
 
 
 class TestModels(helpers.TestGL):
@@ -127,6 +121,7 @@ class TestModels(helpers.TestGL):
     def context_add(self, store):
         c = self.localization_set(self.dummyContext, models.Context, 'en')
         context = models.Context(c)
+        context.tid = FIRST_TENANT
         context.questionnaire_id = db_get_default_questionnaire_id(store)
         context.tip_timetolive = 1000
         context.description = context.name = \
@@ -134,19 +129,6 @@ class TestModels(helpers.TestGL):
             context.submission_introduction = {'en': 'Localized723'}
         store.add(context)
         return context.id
-
-    @transact
-    def context_get(self, store, context_id):
-        context = models.Context.get(store, context_id)
-        if context is None:
-            return None
-        return context.id
-
-    @transact
-    def context_del(self, store, context_id):
-        context = models.Context.get(store, context_id)
-        if context is not None:
-            store.remove(context)
 
     @transact
     def receiver_add(self, store):
@@ -175,19 +157,6 @@ class TestModels(helpers.TestGL):
         return receiver.id
 
     @transact
-    def receiver_get(self, store, receiver_id):
-        receiver = models.Receiver.get(store, receiver_id)
-        if receiver is None:
-            return None
-        return receiver.id
-
-    @transact
-    def receiver_del(self, store, receiver_id):
-        receiver = models.Receiver.get(store, receiver_id)
-        if receiver is not None:
-            store.remove(receiver)
-
-    @transact
     def create_context_with_receivers(self, store):
         u1 = self.localization_set(self.dummyReceiverUser_1, models.User, 'en')
         receiver_user1 = models.User(u1)
@@ -204,6 +173,7 @@ class TestModels(helpers.TestGL):
 
         c = self.localization_set(self.dummyContext, models.Context, 'en')
         context = models.Context(c)
+        context.tid = FIRST_TENANT
         context.questionnaire_id = db_get_default_questionnaire_id(store)
         context.tip_timetolive = 1000
         context.description = context.name = \
@@ -277,11 +247,8 @@ class TestModels(helpers.TestGL):
 
     @transact
     def list_receivers_of_context(self, store, context_id):
-        context = models.Context.get(store, context_id)
-        receivers = []
-        for receiver in context.receivers:
-            receivers.append(receiver.id)
-        return receivers
+        context = models.Context.db_get(store, id=context_id)
+        return [r.id for r in context.receivers]
 
     @transact
     def list_context_of_receivers(self, store, receiver_id):
@@ -289,46 +256,46 @@ class TestModels(helpers.TestGL):
         Return the list of context ids associated with the receiver identified
         by receiver_id.
         """
-        receiver = models.Receiver.get(store, receiver_id)
-        return [context.id for context in receiver.contexts]
+        receiver = models.Receiver.db_get(store, id=receiver_id)
+        return [c.id for c in receiver.contexts]
 
     @inlineCallbacks
     def test_context_add_and_get(self):
         context_id = yield self.context_add()
-        context_id = yield self.context_get(context_id)
-        self.assertIsNotNone(context_id)
+        check = yield models.Context.test(id=context_id)
+        self.assertTrue(check)
 
     @inlineCallbacks
     def test_context_add_and_del(self):
         context_id = yield self.context_add()
-        yield self.context_del(context_id)
-        context_id = yield self.context_get(context_id)
-        self.assertIsNone(context_id)
+        yield models.Context.delete(id=context_id)
+        check = yield models.Context.test(id=context_id)
+        self.assertFalse(check)
 
     @inlineCallbacks
     def test_receiver_add_and_get(self):
         receiver_id = yield self.receiver_add()
-        receiver_id = yield self.receiver_get(receiver_id)
-        self.assertIsNotNone(receiver_id)
+        check = yield models.Receiver.test(id=receiver_id)
+        self.assertTrue(check)
 
     @inlineCallbacks
     def test_receiver_add_and_del(self):
         receiver_id = yield self.receiver_add()
-        yield self.receiver_del(receiver_id)
-        receiver_id = yield self.receiver_get(receiver_id)
-        self.assertIsNone(receiver_id)
+        yield models.Receiver.delete(id=receiver_id)
+        check = yield models.Receiver.test(id=receiver_id)
+        self.assertFalse(check)
 
     @inlineCallbacks
     def test_context_receiver_reference_1(self):
         context_id = yield self.create_context_with_receivers()
-        yield self.assert_model_exists(models.Context, context_id)
+        yield self.assert_model_exists(models.Context, id=context_id)
         receivers = yield self.list_receivers_of_context(context_id)
         self.assertEqual(2, len(receivers))
 
     @inlineCallbacks
     def test_context_receiver_reference_2(self):
         receiver_id = yield self.create_receiver_with_contexts()
-        yield self.assert_model_exists(models.Receiver, receiver_id)
+        yield self.assert_model_exists(models.Receiver, id=receiver_id)
         contexts = yield self.list_context_of_receivers(receiver_id)
         self.assertEqual(2, len(contexts))
 
@@ -339,31 +306,27 @@ class TestField(helpers.TestGL):
         yield super(TestField, self).setUp()
 
     @transact
-    def field_delete(self, store, field_id):
-        store.remove(models.Field.get(store, field_id))
-
-    @transact
     def add_children(self, store, field_id, *field_ids):
-        parent = models.Field.get(store, field_id)
+        parent = models.Field.db_get(store, id=field_id)
         for field_id in field_ids:
-            field = models.Field.get(store, field_id)
+            field = models.Field.db_get(store, id=field_id)
             parent.children.add(field)
 
     @transact
     def get_children(self, store, field_id):
-        return [c.id for c in models.Field.get(store, field_id).children]
+        return [c.id for c in models.Field.db_get(store, id=field_id).children]
 
     @inlineCallbacks
     def test_field(self):
         field1_id = yield self.create_dummy_field()
-        yield self.assert_model_exists(models.Field, field1_id)
+        yield self.assert_model_exists(models.Field, id=field1_id)
 
         field2_id = yield self.create_dummy_field(type='checkbox')
-        yield self.assert_model_exists(models.Field, field2_id)
+        yield self.assert_model_exists(models.Field, id=field2_id)
 
-        yield self.field_delete(field1_id)
-        yield self.assert_model_not_exists(models.Field, field1_id)
-        yield self.assert_model_exists(models.Field, field2_id)
+        yield models.Field.delete(id=field1_id)
+        yield self.assert_model_not_exists(models.Field, id=field1_id)
+        yield self.assert_model_exists(models.Field, id=field2_id)
 
     @inlineCallbacks
     def test_field_group(self):
@@ -383,15 +346,15 @@ class TestField(helpers.TestGL):
             x=1, y=2,
         )
 
-        yield self.assert_model_exists(models.Field, fieldgroup_id)
-        yield self.assert_model_exists(models.Field, field2_id)
+        yield self.assert_model_exists(models.Field, id=fieldgroup_id)
+        yield self.assert_model_exists(models.Field, id=field2_id)
         yield self.add_children(fieldgroup_id, field1_id, field2_id)
 
         fieldgroup_children = yield self.get_children(fieldgroup_id)
         self.assertIn(field1_id, fieldgroup_children)
         self.assertIn(field2_id, fieldgroup_children)
 
-        yield self.field_delete(fieldgroup_id)
-        yield self.assert_model_not_exists(models.Field, fieldgroup_id)
-        yield self.assert_model_not_exists(models.Field, field1_id)
-        yield self.assert_model_not_exists(models.Field, field2_id)
+        yield models.Field.delete(id=fieldgroup_id)
+        yield self.assert_model_not_exists(models.Field, id=fieldgroup_id)
+        yield self.assert_model_not_exists(models.Field, id=field1_id)
+        yield self.assert_model_not_exists(models.Field, id=field2_id)

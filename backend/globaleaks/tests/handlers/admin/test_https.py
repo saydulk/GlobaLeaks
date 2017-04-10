@@ -4,6 +4,7 @@ import twisted
 from twisted.internet.defer import inlineCallbacks
 from OpenSSL import crypto, SSL
 
+from globaleaks.constants import FIRST_TENANT
 from globaleaks.handlers.admin import https
 from globaleaks.models.config import PrivateFactory
 from globaleaks.orm import transact
@@ -16,7 +17,7 @@ from globaleaks.tests.utils import test_tls
 
 @transact
 def set_dh_params(store, dh_params):
-    PrivateFactory(store).set_val('https_dh_params', dh_params)
+    PrivateFactory(store, FIRST_TENANT).set_val('https_dh_params', dh_params)
 
 
 class TestFileHandler(helpers.TestHandler):
@@ -40,7 +41,7 @@ class TestFileHandler(helpers.TestHandler):
 
     @transact
     def set_enabled(self, store):
-        PrivateFactory(store).set_val('https_enabled', True)
+        PrivateFactory(store, FIRST_TENANT).set_val('https_enabled', True)
         GLSettings.memory_copy.private.https_enabled = True
 
     @inlineCallbacks
@@ -82,7 +83,7 @@ class TestFileHandler(helpers.TestHandler):
         n = 'cert'
 
         yield self.is_set(n, False)
-        yield https.PrivKeyFileRes.create_file(self.valid_setup['key'])
+        yield https.PrivKeyFileRes.create_file(FIRST_TENANT, self.valid_setup['key'])
 
         # Test bad cert
         body = {'name': 'cert', 'content': 'bonk bonk bonk'}
@@ -109,8 +110,8 @@ class TestFileHandler(helpers.TestHandler):
         n = 'chain'
 
         yield self.is_set(n, False)
-        yield https.PrivKeyFileRes.create_file(self.valid_setup['key'])
-        yield https.CertFileRes.create_file(self.valid_setup['cert'])
+        yield https.PrivKeyFileRes.create_file(FIRST_TENANT, self.valid_setup['key'])
+        yield https.CertFileRes.create_file(FIRST_TENANT, self.valid_setup['cert'])
 
         body = {'name': 'chain', 'content': self.valid_setup[n]}
         handler = self.request(body, role='admin')
@@ -147,9 +148,9 @@ class TestConfigHandler(helpers.TestHandler):
         valid_setup = test_tls.get_valid_setup()
 
         yield set_dh_params(valid_setup['dh_params'])
-        yield https.PrivKeyFileRes.create_file(valid_setup['key'])
-        yield https.CertFileRes.create_file(valid_setup['cert'])
-        yield https.ChainFileRes.create_file(valid_setup['chain'])
+        yield https.PrivKeyFileRes.create_file(FIRST_TENANT, valid_setup['key'])
+        yield https.CertFileRes.create_file(FIRST_TENANT, valid_setup['cert'])
+        yield https.ChainFileRes.create_file(FIRST_TENANT, valid_setup['chain'])
 
         handler = self.request(role='admin')
 
@@ -179,7 +180,7 @@ class TestCSRHandler(helpers.TestHandler):
 
         valid_setup = test_tls.get_valid_setup()
         yield set_dh_params(valid_setup['dh_params'])
-        yield https.PrivKeyFileRes.create_file(valid_setup['key'])
+        yield https.PrivKeyFileRes.create_file(FIRST_TENANT, valid_setup['key'])
 
         d = {
            'commonname': 'notreal.ns.com',

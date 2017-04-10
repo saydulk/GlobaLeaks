@@ -37,4 +37,4 @@ class TestReceiverInstance(helpers.TestHandlerWithPopulatedDB):
         handler = self.request(self.dummyReceiver_1, role='admin')
 
         yield self.assertFailure(handler.put(self.dummyReceiver_1['id']),
-                                 errors.ContextIdNotFound)
+                                 errors.ModelNotFound)

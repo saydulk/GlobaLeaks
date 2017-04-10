@@ -59,4 +59,4 @@ class TestQuestionnaireInstance(helpers.TestHandlerWithPopulatedDB):
         yield ctx_handler.delete(self.dummyContext['id'])
         yield handler.delete(self.dummyQuestionnaire['id'])
         yield self.assertFailure(handler.get(self.dummyQuestionnaire['id']),
-                                 errors.QuestionnaireIdNotFound)
+                                 errors.ModelNotFound)
