@@ -329,12 +329,10 @@ class TestGL(unittest.TestCase):
     @transact
     def create_dummy_field(self, store, **custom_attrs):
         field = get_dummy_field()
-
         fill_localized_keys(field, models.Field.localized_keys, 'en')
-
         field.update(custom_attrs)
 
-        f = models.Field(field)
+        f = db_create_field(store, FIRST_TENANT, field, None)
 
         store.add(f)
 
@@ -576,7 +574,7 @@ class TestGLWithPopulatedDB(TestGL):
 
         reference_field = get_dummy_field()
         reference_field['instance'] = 'instance'
-        reference_field['reference_id'] = wbf.id
+        reference_field['template_id'] = wbf.id
         reference_field['step_id'] = step_id
         db_create_field(store, FIRST_TENANT, reference_field, 'en')
 

@@ -327,34 +327,3 @@ class TestField(helpers.TestGL):
         yield models.Field.delete(id=field1_id)
         yield self.assert_model_not_exists(models.Field, id=field1_id)
         yield self.assert_model_exists(models.Field, id=field2_id)
-
-    @inlineCallbacks
-    def test_field_group(self):
-        field1_id = yield self.create_dummy_field(
-            label={"en": "the first testable field"},
-            type='checkbox'
-        )
-
-        field2_id = yield self.create_dummy_field(
-            label={"en": "the second testable field"},
-            type='inputbox'
-        )
-
-        fieldgroup_id = yield self.create_dummy_field(
-            label={"en": "a testable group of fields."},
-            type='fieldgroup',
-            x=1, y=2,
-        )
-
-        yield self.assert_model_exists(models.Field, id=fieldgroup_id)
-        yield self.assert_model_exists(models.Field, id=field2_id)
-        yield self.add_children(fieldgroup_id, field1_id, field2_id)
-
-        fieldgroup_children = yield self.get_children(fieldgroup_id)
-        self.assertIn(field1_id, fieldgroup_children)
-        self.assertIn(field2_id, fieldgroup_children)
-
-        yield models.Field.delete(id=fieldgroup_id)
-        yield self.assert_model_not_exists(models.Field, id=fieldgroup_id)
-        yield self.assert_model_not_exists(models.Field, id=field1_id)
-        yield self.assert_model_not_exists(models.Field, id=field2_id)
