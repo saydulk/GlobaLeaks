@@ -42,23 +42,18 @@ def wb_serialize_wbfile(f):
 
 
 def db_access_wbtip(store, wbtip_id):
-    wbtip = store.find(WhistleblowerTip, WhistleblowerTip.id == wbtip_id).one()
-
-    if not wbtip:
-        raise errors.TipReceiptNotFound
-
-    return wbtip
+    return WhistleblowerTip.db_get(store, id=wbtip_id)
 
 
 def db_get_rfile_list(store, itip_id):
-    ifiles = store.find(InternalFile, InternalFile.internaltip_id == itip_id)
+    ifiles = store.find(InternalFile, internaltip_id=itip_id)
 
     return [wb_serialize_ifile(ifile) for ifile in ifiles]
 
 
 def db_get_wbfile_list(store, itip_id):
     wbfiles = store.find(WhistleblowerFile, WhistleblowerFile.receivertip_id == ReceiverTip.id,
-                                           ReceiverTip.internaltip_id == itip_id)
+                                            ReceiverTip.internaltip_id == itip_id)
 
     return [wb_serialize_wbfile(wbfile) for wbfile in wbfiles]
 

@@ -8,6 +8,7 @@
 from twisted.internet.defer import inlineCallbacks
 
 from globaleaks import models
+from globaleaks.constants import ROOT_TENANT
 from globaleaks.handlers.admin.step import db_create_step
 from globaleaks.handlers.base import BaseHandler
 from globaleaks.handlers.public import serialize_step, serialize_questionnaire
@@ -37,17 +38,12 @@ def get_questionnaire(store, questionnaire_id, language):
     Returns:
         (dict) the questionnaire with the specified id.
     """
-    questionnaire = store.find(models.Questionnaire, models.Questionnaire.id == questionnaire_id).one()
-
-    if not questionnaire:
-        log.err("Requested invalid questionnaire")
-        raise errors.QuestionnaireIdNotFound
-
+    questionnaire = models.Questionnaire.db_get(store, id=questionnaire_id)
     return serialize_questionnaire(store, questionnaire, language)
 
 
 def db_get_default_questionnaire_id(store):
-    return store.find(models.Questionnaire, models.Questionnaire.key == u'default').one().id
+    return models.Questionnaire.db_get(store, key=u'default').id
 
 
 def db_get_questionnaire_steps(store, questionnaire_id, language):
@@ -55,12 +51,7 @@ def db_get_questionnaire_steps(store, questionnaire_id, language):
     Returns:
         (dict) the questionnaire associated with the questionnaire with the specified id.
     """
-    questionnaire = store.find(models.Questionnaire, models.Questionnaire.id == questionnaire_id).one()
-
-    if not questionnaire:
-        log.err("Requested invalid questionnaire")
-        raise errors.QuestionnaireIdNotFound
-
+    questionnaire = models.Questionnaire.db_get(store, id=questionnaire_id)
     return [serialize_step(store, s, language) for s in questionnaire.steps]
 
 
@@ -94,18 +85,23 @@ def db_create_steps(store, questionnaire, steps, language):
         questionnaire.steps.add(db_create_step(store, step, language))
 
 
-def db_create_questionnaire(store, request, language):
+def db_create_questionnaire(store, tid, request, language):
     request = fill_questionnaire_request(request, language)
 
     questionnaire = models.Questionnaire(request)
 
     store.add(questionnaire)
 
+    store.add(models.Questionnaire_Tenant({
+       'questionnaire_id': questionnaire.id,
+       'tenant_id': tid
+    }))
+
     return questionnaire
 
 
 @transact
-def create_questionnaire(store, request, language):
+def create_questionnaire(store, tid, request, language):
     """
     Creates a new questionnaire from the request of a client.
 
@@ -118,7 +114,7 @@ def create_questionnaire(store, request, language):
     Returns:
         (dict) representing the configured questionnaire
     """
-    questionnaire = db_create_questionnaire(store, request, language)
+    questionnaire = db_create_questionnaire(store, tid, request, language)
 
     return serialize_questionnaire(store, questionnaire, language)
 
@@ -179,7 +175,7 @@ class QuestionnairesCollection(BaseHandler):
         Errors: None
         """
         response = yield GLApiCache.get('questionnaires',
-                                        self.request.current_tenant_id,
+                                        self.current_tenant,
                                         self.request.language,
                                         get_questionnaire_list,
                                         self.request.language)
@@ -201,9 +197,11 @@ class QuestionnairesCollection(BaseHandler):
 
         request = self.validate_message(self.request.body, validator)
 
-        response = yield create_questionnaire(request, self.request.language)
+        response = yield create_questionnaire(self.current_tenant,
+                                              request,
+                                              self.request.language)
 
-        GLApiCache.invalidate(self.request.current_tenant_id)
+        GLApiCache.invalidate(self.current_tenant)
 
         self.set_status(201)
         self.write(response)
@@ -244,7 +242,7 @@ class QuestionnaireInstance(BaseHandler):
 
         response = yield update_questionnaire(questionnaire_id, request, self.request.language)
 
-        GLApiCache.invalidate(self.request.current_tenant_id)
+        GLApiCache.invalidate(self.current_tenant)
 
         self.set_status(202)
         self.write(response)
@@ -261,4 +259,4 @@ class QuestionnaireInstance(BaseHandler):
         Errors: InvalidInputFormat, QuestionnaireIdNotFound
         """
         yield delete_questionnaire(questionnaire_id)
-        GLApiCache.invalidate(self.request.current_tenant_id)
+        GLApiCache.invalidate(self.current_tenant)

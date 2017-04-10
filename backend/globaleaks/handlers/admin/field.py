@@ -6,10 +6,11 @@
 #
 import copy
 
-from storm.expr import And, Not, In
+from storm.expr import And, Not, In, Or
 from twisted.internet.defer import inlineCallbacks
 
 from globaleaks import models
+from globaleaks.constants import ROOT_TENANT
 from globaleaks.handlers.base import BaseHandler
 from globaleaks.handlers.public import serialize_field
 from globaleaks.orm import transact
@@ -17,7 +18,6 @@ from globaleaks.rest import errors, requests
 from globaleaks.rest.apicache import GLApiCache
 from globaleaks.utils.structures import fill_localized_keys
 from globaleaks.utils.utility import log
-
 
 def db_import_fields(store, step, fieldgroup, fields):
     for field in fields:
@@ -27,14 +27,15 @@ def db_import_fields(store, step, fieldgroup, fields):
 
         del field['attrs'], field['options'], field['children']
 
-        f = models.db_forge_obj(store, models.Field, field)
+        f = models.Field(field)
+        store.add(f)
 
         for attr in f_attrs:
             f_attrs[attr]['name'] = attr
-            f.attrs.add(models.db_forge_obj(store, models.FieldAttr, f_attrs[attr]))
+            f.attrs.add(models.FieldAttr(f_attrs[attr]))
 
         for option in f_options:
-            f.options.add(models.db_forge_obj(store, models.FieldOption, option))
+            f.options.add(models.FieldOption(option))
 
         if step:
             step.children.add(f)
@@ -48,17 +49,16 @@ def db_import_fields(store, step, fieldgroup, fields):
 def db_update_fieldoption(store, fieldoption_id, option, language):
     fill_localized_keys(option, models.FieldOption.localized_keys, language)
 
+    o = None
     if fieldoption_id is not None:
         o = store.find(models.FieldOption, models.FieldOption.id == fieldoption_id).one()
-    else:
         o = None
 
     if o is None:
-        o = models.FieldOption()
+        o = models.FieldOption(option)
         store.add(o)
-
-    o.trigger_field = option['trigger_field'] if option['trigger_field'] != '' else None
-    o.trigger_step = option['trigger_step'] if option['trigger_step'] != '' else None
+    else:
+        o.update(option)
 
     o.update(option)
 
@@ -83,10 +83,6 @@ def db_update_fieldoptions(store, field_id, options, language):
 
 
 def db_update_fieldattr(store, field_id, attr_name, attr_dict, language):
-    attr = store.find(models.FieldAttr, And(models.FieldAttr.field_id == field_id, models.FieldAttr.name == attr_name)).one()
-    if not attr:
-        attr = models.FieldAttr()
-
     attr_dict['name'] = attr_name
     attr_dict['field_id'] = field_id
 
@@ -95,9 +91,12 @@ def db_update_fieldattr(store, field_id, attr_name, attr_dict, language):
     elif attr_dict['type'] == u'localized':
         fill_localized_keys(attr_dict, ['value'], language)
 
-    attr.update(attr_dict)
-
-    store.add(attr)
+    attr = store.find(models.FieldAttr, And(models.FieldAttr.field_id == field_id, models.FieldAttr.name == attr_name)).one()
+    if not attr:
+        attr = models.FieldAttr(attr_dict)
+        store.add(attr)
+    else:
+        attr.update(attr_dict)
 
     return attr.id
 
@@ -108,7 +107,7 @@ def db_update_fieldattrs(store, field_id, field_attrs, language):
     store.find(models.FieldAttr, And(models.FieldAttr.field_id == field_id, Not(In(models.FieldAttr.id, attrs_ids)))).remove()
 
 
-def db_create_field(store, field_dict, language):
+def db_create_field(store, tid, field_dict, language):
     """
     Create and add a new field to the store, then return the new serialized object.
 
@@ -119,28 +118,23 @@ def db_create_field(store, field_dict, language):
     """
     fill_localized_keys(field_dict, models.Field.localized_keys, language)
 
+    if field_dict['step_id'] == '' and field_dict['fieldgroup_id'] == '':
+        qt = models.Question()
+        store.add(qt)
+        field_dict['question_id'] = qt.id
+
+        store.add(models.Question_Tenant({
+            'question_id': qt.id,
+            'tenant_id': ROOT_TENANT
+        }))
+
     field = models.Field(field_dict)
-
-    if field_dict['template_id'] != '':
-        field.template_id = field_dict['template_id']
-
-    if field_dict['step_id'] != '':
-        field.step_id = field_dict['step_id']
-
-    if field_dict['fieldgroup_id'] != '':
-        ancestors = set(fieldtree_ancestors(store, field_dict['fieldgroup_id']))
-
-        if field.id == field_dict['fieldgroup_id'] or field.id in ancestors:
-            raise errors.InvalidInputFormat("Provided field association would cause recursion loop")
-
-        field.fieldgroup_id = field_dict['fieldgroup_id']
-
     store.add(field)
 
     if field.template:
         # special handling of the whistleblower_identity field
         if field.template.key == 'whistleblower_identity':
-            if field.step:
+            if field.step_id is not None:
                 if store.find(models.Field, models.Field.key == u'whistleblower_identity',
                                             models.Field.step_id == models.Step.id,
                                             models.Step.questionnaire_id == models.Questionnaire.id,
@@ -155,26 +149,26 @@ def db_create_field(store, field_dict, language):
         db_update_fieldattrs(store, field.id, field_dict['attrs'], language)
         db_update_fieldoptions(store, field.id, field_dict['options'], language)
 
-    if field.instance != 'reference':
+    if field.template_id is None:
         for c in field_dict['children']:
             c['fieldgroup_id'] = field.id
-            db_create_field(store, c, language)
+            db_create_field(store, tid, c, language)
 
     return field
 
 
 @transact
-def create_field(store, field_dict, language, request_type=None):
+def create_field(store, tid, field_dict, language, request_type=None):
     """
     Transaction that perform db_create_field
     """
-    field = db_create_field(store, field_dict, language if request_type != 'import' else None)
+    field = db_create_field(store, tid, field_dict, language if request_type != 'import' else None)
 
     return serialize_field(store, field, language)
 
 
-def db_update_field(store, field_id, field_dict, language):
-    field = models.Field.get(store, field_id)
+def db_update_field(store, tid, field_id, field_dict, language):
+    field = store.find(models.Field, id=field_id).one()
     if not field:
         raise errors.FieldIdNotFound
 
@@ -182,11 +176,17 @@ def db_update_field(store, field_id, field_dict, language):
     # if not field.editable:
     #     raise errors.FieldNotEditable
 
+    if field_dict['fieldgroup_id'] != '':
+        ancestors = set(fieldtree_ancestors(store, field_dict['fieldgroup_id']))
+
+        if field.id == field_dict['fieldgroup_id'] or field.id in ancestors:
+            raise errors.InvalidInputFormat("Provided field association would cause recursion loop")
+
     try:
         # make not possible to change field type
         field_dict['type'] = field.type
 
-        if field_dict['instance'] != 'reference':
+        if field.template_id is None:
             fill_localized_keys(field_dict, models.Field.localized_keys, language)
 
             db_update_fieldattrs(store, field.id, field_dict['attrs'], language)
@@ -213,7 +213,7 @@ def db_update_field(store, field_id, field_dict, language):
 
 
 @transact
-def update_field(store, field_id, field, language, request_type=None):
+def update_field(store, tid, field_id, field, language, request_type=None):
     """
     Update the specified field with the details.
     raises :class:`globaleaks.errors.FieldIdNotFound` if the field does
@@ -225,13 +225,13 @@ def update_field(store, field_id, field, language, request_type=None):
     :param language: the language of the field definition dict
     :return: a serialization of the object
     """
-    field = db_update_field(store, field_id, field, language if request_type != 'import' else None)
+    field = db_update_field(store, tid, field_id, field, language if request_type != 'import' else None)
 
     return serialize_field(store, field, language)
 
 
 @transact
-def get_field(store, field_id, language, request_type=None):
+def get_field(store, tid, field_id, language, request_type=None):
     """
     Serialize a specified field
 
@@ -241,15 +241,13 @@ def get_field(store, field_id, language, request_type=None):
     :return: the currently configured field.
     :rtype: dict
     """
-    field = store.find(models.Field, models.Field.id == field_id).one()
-    if not field:
-        raise errors.FieldIdNotFound
+    field = models.Field.db_get(store, id=field_id)
 
     return serialize_field(store, field, language if request_type != 'export' else None)
 
 
 @transact
-def delete_field(store, field_id):
+def delete_field(store, tid, field_id):
     """
     Delete the field object corresponding to field_id
 
@@ -260,20 +258,16 @@ def delete_field(store, field_id):
     :param field_id: the id corresponding to the field.
     :raises FieldIdNotFound: if no such field is found.
     """
-    field = store.find(models.Field, models.Field.id == field_id).one()
-    if not field:
-        raise errors.FieldIdNotFound
+    field = models.Field.db_get(store, id=field_id)
 
     # TODO: to be uncommented upon completion of fields implementaion
     # if not field.editable:
     #     raise errors.FieldNotEditable
 
-    if field.instance == 'template':
-        if store.find(models.Field, models.Field.template_id == field.id).count():
-            raise errors.InvalidInputFormat("Cannot remove the field template as it is used by one or more questionnaires")
+    if store.find(models.Field, models.Field.template_id == field.id).count():
+        raise errors.InvalidInputFormat("Cannot remove the field template as it is used by one or more questionnaires")
 
-
-    if field.template:
+    if field.template_id:
         # special handling of the whistleblower_identity field
         if field.template.key == 'whistleblower_identity':
             if field.step is not None:
@@ -290,14 +284,14 @@ def fieldtree_ancestors(store, field_id):
     :param field_id: the parent id.
     :return: a generator of Field.id
     """
-    field = store.find(models.Field, models.Field.id == field_id).one()
+    field = store.find(models.Field, id = field_id).one()
     if field.fieldgroup_id is not None:
         yield field.fieldgroup_id
         yield fieldtree_ancestors(store, field.fieldgroup_id)
 
 
 @transact
-def get_fieldtemplate_list(store, language, request_type=None):
+def get_fieldtemplate_list(store, tid, language, request_type=None):
     """
     Serialize all the field templates localizing their content depending on the language.
 
@@ -308,12 +302,9 @@ def get_fieldtemplate_list(store, language, request_type=None):
     """
     language = language if request_type != 'export' else None
 
-    ret = []
-    for f in store.find(models.Field, And(models.Field.instance == u'template',
-                                          models.Field.fieldgroup_id == None)):
-        ret.append(serialize_field(store, f, language))
+    templates = store.find(models.Field, step_id=None, fieldgroup_id=None)
 
-    return ret
+    return [serialize_field(store, t, language) for t in templates]
 
 
 class FieldTemplatesCollection(BaseHandler):
@@ -327,10 +318,11 @@ class FieldTemplatesCollection(BaseHandler):
         :return: the list of field templates registered on the node.
         :rtype: list
         """
-        response = yield GLApiCache.get('fieldtemplates',
-                                        self.request.current_tenant_id,
+        response = yield GLApiCache.get(self.current_tenant,
+                                        'fieldtemplates',
                                         self.request.language,
                                         get_fieldtemplate_list,
+                                        self.current_tenant,
                                         self.request.language,
                                         self.request.request_type)
 
@@ -347,7 +339,10 @@ class FieldTemplatesCollection(BaseHandler):
 
         request = self.validate_message(self.request.body, validator)
 
-        response = yield create_field(request, self.request.language, self.request.request_type)
+        response = yield create_field(self.current_tenant,
+                                      request,
+                                      self.request.language,
+                                      self.request.request_type)
 
         self.set_status(201)
         self.write(response)
@@ -366,7 +361,8 @@ class FieldTemplateInstance(BaseHandler):
         :raises FieldIdNotFound: if there is no field with such id.
         :raises InvalidInputFormat: if validation fails.
         """
-        response = yield get_field(field_id,
+        response = yield get_field(self.current_tenant,
+                                   field_id,
                                    self.request.language,
                                    self.request.request_type)
 
@@ -387,12 +383,13 @@ class FieldTemplateInstance(BaseHandler):
         request = self.validate_message(self.request.body,
                                         requests.AdminFieldDesc)
 
-        response = yield update_field(field_id,
+        response = yield update_field(self.current_tenant,
+                                      field_id,
                                       request,
                                       self.request.language,
                                       self.request.request_type)
 
-        GLApiCache.invalidate(self.request.current_tenant_id)
+        GLApiCache.invalidate(self.current_tenant)
 
         self.set_status(202) # Updated
         self.write(response)
@@ -407,9 +404,9 @@ class FieldTemplateInstance(BaseHandler):
         :param field_id:
         :raises FieldIdNotFound: if there is no field with such id.
         """
-        yield delete_field(field_id)
+        yield delete_field(self.current_tenant, field_id)
 
-        GLApiCache.invalidate(self.request.current_tenant_id)
+        GLApiCache.invalidate(self.current_tenant)
 
 
 class FieldCollection(BaseHandler):
@@ -432,11 +429,12 @@ class FieldCollection(BaseHandler):
         request = self.validate_message(self.request.body,
                                         requests.AdminFieldDesc)
 
-        response = yield create_field(request,
+        response = yield create_field(self.current_tenant,
+                                      request,
                                       self.request.language,
                                       self.request.request_type)
 
-        GLApiCache.invalidate(self.request.current_tenant_id)
+        GLApiCache.invalidate(self.current_tenant)
 
         self.set_status(201)
         self.write(response)
@@ -461,11 +459,12 @@ class FieldInstance(BaseHandler):
         :raises FieldIdNotFound: if there is no field with such id.
         :raises InvalidInputFormat: if validation fails.
         """
-        response = yield get_field(field_id,
+        response = yield get_field(self.current_tenant,
+                                   field_id,
                                    self.request.language,
                                    self.request.request_type)
 
-        GLApiCache.invalidate(self.request.current_tenant_id)
+        GLApiCache.invalidate(self.current_tenant)
 
         self.write(response)
 
@@ -485,12 +484,13 @@ class FieldInstance(BaseHandler):
         request = self.validate_message(self.request.body,
                                         requests.AdminFieldDesc)
 
-        response = yield update_field(field_id,
+        response = yield update_field(self.current_tenant,
+                                      field_id,
                                       request,
                                       self.request.language,
                                       self.request.request_type)
 
-        GLApiCache.invalidate(self.request.current_tenant_id)
+        GLApiCache.invalidate(self.current_tenant)
 
         self.set_status(202) # Updated
         self.write(response)
@@ -506,6 +506,6 @@ class FieldInstance(BaseHandler):
         :raises FieldIdNotFound: if there is no field with such id.
         :raises InvalidInputFormat: if validation fails.
         """
-        yield delete_field(field_id)
+        yield delete_field(self.current_tenant, field_id)
 
-        GLApiCache.invalidate(self.request.current_tenant_id)
+        GLApiCache.invalidate(self.current_tenant)

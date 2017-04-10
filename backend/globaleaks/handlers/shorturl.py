@@ -26,5 +26,5 @@ class ShortUrlInstance(BaseHandler):
     @BaseHandler.unauthenticated
     @inlineCallbacks
     def get(self, shorturl):
-        longurl = yield translate_shorturl(self.request.current_tenant_id, shorturl)
+        longurl = yield translate_shorturl(self.current_tenant, shorturl)
         self.redirect(longurl)

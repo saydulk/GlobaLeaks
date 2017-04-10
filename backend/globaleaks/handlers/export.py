@@ -25,7 +25,7 @@ from globaleaks.utils.zipstream import ZipStream
 
 
 @transact
-def get_tip_export(store, user_id, rtip_id, language):
+def get_tip_export(store, tid, user_id, rtip_id, language):
     rtip = db_access_rtip(store, user_id, rtip_id)
 
     receiver = rtip.receiver
@@ -34,8 +34,8 @@ def get_tip_export(store, user_id, rtip_id, language):
 
     export_dict = {
         'type': u'export_template',
-        'node': db_admin_serialize_node(store, language),
-        'notification': db_get_notification(store, language),
+        'node': db_admin_serialize_node(store, tid, language),
+        'notification': db_get_notification(store, tid, language),
         'tip': serialize_rtip(store, rtip, language),
         'context': admin_serialize_context(store, rtip.internaltip.context, language),
         'receiver': admin_serialize_receiver(store, receiver, language),
@@ -50,7 +50,7 @@ def get_tip_export(store, user_id, rtip_id, language):
 
     export_dict['files'].append({'buf': export_template, 'name': "data.txt"})
 
-    for rf in store.find(models.ReceiverFile, models.ReceiverFile.receivertip_id == rtip_id):
+    for rf in store.find(models.ReceiverFile, receivertip_id=rtip_id):
         rf.downloads += 1
         file_dict = models.serializers.serialize_rfile(rf)
         file_dict['name'] = 'files/' + file_dict['name']
@@ -127,7 +127,7 @@ class ExportHandler(BaseHandler):
     @inlineCallbacks
     @asynchronous
     def get(self, rtip_id):
-        tip_export = yield get_tip_export(self.current_user.user_id, rtip_id, self.request.language)
+        tip_export = yield get_tip_export(self.current_tenant, self.current_user.user_id, rtip_id, self.request.language)
 
         self.set_header('X-Download-Options', 'noopen')
         self.set_header('Content-Type', 'application/octet-stream')

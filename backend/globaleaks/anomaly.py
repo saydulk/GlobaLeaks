@@ -15,6 +15,7 @@ import copy
 from twisted.internet import defer
 
 from globaleaks import models
+from globaleaks.constants import ROOT_TENANT
 from globaleaks.event import EventTrackQueue
 from globaleaks.handlers.admin.node import db_admin_serialize_node
 from globaleaks.handlers.admin.notification import db_get_notification
@@ -203,7 +204,6 @@ class AlarmClass(object):
                             (previous_activity_sl,
                              self.stress_levels['activity']))
 
-
         yield self.generate_admin_alert_mail(current_event_matrix)
 
         ret = self.stress_levels['activity'] - previous_activity_sl
@@ -240,7 +240,7 @@ class AlarmClass(object):
 
         @transact
         def _generate_admin_alert_mail(store, alert):
-            for user_desc in db_get_admin_users(store):
+            for user_desc in db_get_admin_users(store, ROOT_TENANT):
                 user_language = user_desc['language']
 
                 data = {

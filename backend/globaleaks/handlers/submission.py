@@ -13,8 +13,9 @@ from storm.expr import And, In
 from twisted.internet import defer
 
 from globaleaks import models
-from globaleaks.handlers.admin.context import db_get_context_steps
+from globaleaks.handlers.admin.questionnaire import db_get_questionnaire_steps
 from globaleaks.handlers.base import BaseHandler
+from globaleaks.handlers.public import serialize_step
 from globaleaks.orm import transact
 from globaleaks.rest import errors, requests
 from globaleaks.security import hash_password, sha256, generateRandomReceipt
@@ -285,10 +286,11 @@ def create_whistleblowertip(*args):
     return db_create_whistleblowertip(*args)[0] # here is exported only the receipt
 
 
-def db_create_submission(store, request, uploaded_files, t2w, language):
+def db_create_submission(store, tid, request, uploaded_files, t2w, language):
     answers = request['answers']
 
-    context = store.find(models.Context, models.Context.id == request['context_id']).one()
+    context = store.find(models.Context, id=request['context_id'],
+                                         tid=tid).one()
     if not context:
         raise errors.ContextIdNotFound
 
@@ -323,7 +325,7 @@ def db_create_submission(store, request, uploaded_files, t2w, language):
         submission.identity_provided_date = datetime_now()
 
     try:
-        questionnaire = db_get_context_steps(store, context.id, None)
+        questionnaire = db_get_questionnaire_steps(store, context.questionnaire_id, language)
         questionnaire_hash = unicode(sha256(json.dumps(questionnaire)))
 
         submission.questionnaire_hash = questionnaire_hash
@@ -362,14 +364,12 @@ def db_create_submission(store, request, uploaded_files, t2w, language):
         raise errors.SubmissionValidationFailure("selected an invalid number of recipients")
 
     rtips = []
-    for receiver in store.find(models.Receiver, In(models.Receiver.id, request['receivers'])):
-        if submission.context not in receiver.contexts:
-            continue
+    for receiver in context.receivers:
+        if receiver.id in request['receivers']:
+            if not GLSettings.memory_copy.allow_unencrypted and receiver.user.pgp_key_public == '':
+                continue
 
-        if not GLSettings.memory_copy.allow_unencrypted and len(receiver.user.pgp_key_public) == 0:
-            continue
-
-        rtips.append(db_create_receivertip(store, receiver, submission))
+            rtips.append(db_create_receivertip(store, receiver, submission))
 
     if len(rtips) == 0:
         raise errors.SubmissionValidationFailure("need at least one recipient")
@@ -384,8 +384,8 @@ def db_create_submission(store, request, uploaded_files, t2w, language):
 
 
 @transact
-def create_submission(store, request, uploaded_files, t2w, language):
-    return db_create_submission(store, request, uploaded_files, t2w, language)
+def create_submission(store, tid, request, uploaded_files, t2w, language):
+    return db_create_submission(store, tid, request, uploaded_files, t2w, language)
 
 
 class SubmissionInstance(BaseHandler):
@@ -409,7 +409,8 @@ class SubmissionInstance(BaseHandler):
         token = TokenList.get(token_id)
         token.use()
 
-        submission = yield create_submission(request,
+        submission = yield create_submission(self.current_tenant,
+                                             request,
                                              token.uploaded_files,
                                              self.check_tor2web(),
                                              self.request.language)

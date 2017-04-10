@@ -4,14 +4,20 @@
 #   *****
 # Implementation of the Tenant handlers
 #
+import base64
+import os
 from twisted.internet.defer import inlineCallbacks
 
 from globaleaks import models
+from globaleaks.handlers.admin import files
 from globaleaks.handlers.base import BaseHandler
-from globaleaks.models.tenant import db_delete_tenant, db_create_tenant, db_get_tenant_list, Tenant
+from globaleaks.models import Tenant, config
+from globaleaks.models.l10n import EnabledLanguage
 from globaleaks.orm import transact
 from globaleaks.rest import requests
-from globaleaks.db import db_refresh_memory_variables
+from globaleaks.memory import refresh_memory_variables
+from globaleaks.settings import GLSettings
+from globaleaks.utils.utility import log
 
 
 def serialize_tenant(tenant):
@@ -21,23 +27,34 @@ def serialize_tenant(tenant):
     }
 
 
+def db_create_tenant(store, desc, appdata):
+    tenant = Tenant(desc)
+    store.add(tenant)
+    store.flush()
+
+    config.db_create_config(store, tenant.id)
+
+    EnabledLanguage.enable_language(store, tenant.id, u'en', appdata)
+
+    for t in [(u'logo', 'data/logo.png'),
+              (u'favicon', 'data/favicon.ico')]:
+        with open(os.path.join(GLSettings.client_path, t[1]), 'r') as file:
+            data = base64.b64encode(file.read())
+            models.config.NodeFactory(store, tenant.id).set_val(t[0], data)
+
+    log.debug("Creating %s" % tenant)
+
+    return tenant
+
+
+@transact
+def create_tenant(store, desc, appdata):
+    return serialize_tenant(db_create_tenant(store, desc, appdata))
+
+
 @transact
 def get_tenant_list(store):
-    return [serialize_tenant(tenant) for tenant in db_get_tenant_list(store)]
-
-
-@transact
-def create_tenant(store, request):
-    tenant = db_create_tenant(store, request)
-
-    db_refresh_memory_variables(store)
-    return serialize_tenant(tenant)
-
-
-@transact
-def delete_tenant(store, tenant_id):
-    db_delete_tenant(store, tenant_id)
-    db_refresh_memory_variables(store)
+    return [serialize_tenant(tenant) for tenant in store.find(Tenant)]
 
 
 class TenantCollection(BaseHandler):
@@ -61,7 +78,11 @@ class TenantCollection(BaseHandler):
         """
         request = self.validate_message(self.request.body, requests.AdminTenantDesc)
 
-        response = yield create_tenant(request)
+        from globaleaks.db.appdata import load_appdata
+
+        response = yield create_tenant(request, load_appdata())
+
+        refresh_memory_variables()
 
         self.set_status(201) # Created
         self.write(response)
@@ -76,6 +97,9 @@ class TenantInstance(BaseHandler):
         Delete the specified tenant.
         """
         tenant_id = int(tenant_id)
-        if tenant_id == self.request.current_tenant_id:
+        if tenant_id == self.current_tenant:
             raise Exception('System will not delete the current tenant.')
-        yield delete_tenant(tenant_id)
+
+        yield Tenant.delete(id=tenant_id)
+
+        refresh_memory_variables()

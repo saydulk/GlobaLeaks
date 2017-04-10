@@ -1,51 +1,41 @@
 # -*- coding: UTF-8
-# datainit.py: database initialization
-#   ******************
+import copy
 import json
 import os
 
 from storm.expr import And, Not, In
 
 from globaleaks import models
-from globaleaks.handlers.admin.field import db_create_field, db_import_fields
+from globaleaks.constants import ROOT_TENANT
+from globaleaks.handlers.admin.field import db_create_field, db_update_field, db_import_fields
 from globaleaks.orm import transact
 from globaleaks.settings import GLSettings
 from globaleaks.utils.utility import log
 
 
-def read_appdata(p):
-    with file(p, 'r') as f:
-        json_string = f.read()
-        appdata_dict = json.loads(json_string)
-        return appdata_dict
-
-
 def load_appdata():
-    return read_appdata(GLSettings.appdata_file)
+    with file(GLSettings.appdata_file, 'r') as f:
+        return json.loads(f.read())
 
 
-def load_archived_appdata(p):
-    return read_appdata(p)
-
-
-def load_default_questionnaires(store):
-    appdata = store.find(models.ApplicationData).one()
-    steps = appdata.default_questionnaire['steps']
-    del appdata.default_questionnaire['steps']
+def load_default_questionnaires(store, appdata):
+    appdata = copy.deepcopy(appdata)
+    appdata['default_questionnaire']['tid'] = ROOT_TENANT
 
     questionnaire = store.find(models.Questionnaire, models.Questionnaire.key == u'default').one()
     if questionnaire is None:
-        questionnaire = models.db_forge_obj(store, models.Questionnaire, appdata.default_questionnaire)
+        questionnaire = models.Questionnaire(appdata['default_questionnaire'])
+        store.add(questionnaire)
     else:
         for step in questionnaire.steps:
             store.remove(step)
 
-    for step in steps:
-        f_children = step['children']
-        del step['children']
-        s = models.db_forge_obj(store, models.Step, step)
-        db_import_fields(store, s, None, f_children)
-        s.questionnaire_id = questionnaire.id
+    for step in appdata['default_questionnaire']['steps']:
+        step['tid'] = ROOT_TENANT
+        step['questionnaire_id'] = questionnaire.id
+        s = models.Step(step)
+        store.add(s)
+        db_import_fields(store, s, None, step['children'])
 
 
 def load_default_fields(store):
@@ -57,26 +47,16 @@ def load_default_fields(store):
             old_field = store.find(models.Field, models.Field.key == field_dict['key']).one()
 
             if old_field is not None:
-                field_dict['id'] = old_field.id
-                store.remove(old_field)
+                db_update_field(store, ROOT_TENANT, old_field.id, field_dict, None)
+            else:
+                db_create_field(store, ROOT_TENANT, field_dict, None)
 
-            db_create_field(store, field_dict, None)
 
-
-def db_update_appdata(store):
-    # Load new appdata
-    appdata_dict = load_appdata()
-
-    # Drop old appdata
-    store.find(models.ApplicationData).remove()
-
-    # Load and setup new appdata
-    store.add(models.ApplicationData(appdata_dict))
-
-    load_default_questionnaires(store)
+def db_update_appdata(store, appdata):
+    load_default_questionnaires(store, appdata)
     load_default_fields(store)
 
-    return appdata_dict
+    return appdata
 
 
 @transact
@@ -129,4 +109,4 @@ def db_fix_fields_attrs(store):
                                   models.FieldAttr.name == attr_name)).one():
                 log.debug("Adding new field attr %s.%s" % (typ, attr_name))
                 attr_dict['name'] = attr_name
-                field.attrs.add(models.db_forge_obj(store, models.FieldAttr, attr_dict))
+                field.attrs.add(models.FieldAttr(attr_dict))
