@@ -1,5 +1,6 @@
 # -*- encoding: utf-8 -*-
 
+import base64
 import os
 
 from storm.locals import Int, Bool, Unicode, DateTime, JSON
@@ -7,12 +8,10 @@ from storm.locals import Int, Bool, Unicode, DateTime, JSON
 from globaleaks.db.migrations.update import MigrationBase
 from globaleaks.handlers.admin import files
 from globaleaks.models import *
-from globaleaks.models import l10n, properties
-from globaleaks.models.config import Config
-from globaleaks.models.l10n import ConfigL10N
 from globaleaks.settings import GLSettings
 
-from globaleaks.db.migrations.update_34.config import GLConfig_v_35
+from globaleaks.db.migrations.update_34 import files
+from globaleaks.db.migrations.update_37 import Config_v_36, File_v_36
 
 class Node_v_33(ModelWithID):
     __storm_table__ = 'node'
@@ -208,6 +207,21 @@ class Notification_v_33(ModelWithID):
     ]
 
 
+def db_add_file(store, data, key = None):
+    file_obj = None
+    if key is not None:
+        file_obj = store.find(File_v_36, id=key).one()
+
+    if file_obj is None:
+        file_obj = File_v_36()
+        if key is not None:
+            file_obj.id = key
+
+        store.add(file_obj)
+
+    file_obj.data = base64.b64encode(data)
+
+
 class MigrationScript(MigrationBase):
     def epilogue(self):
         old_node = self.store_old.find(self.model_from['Node']).one()
@@ -215,7 +229,7 @@ class MigrationScript(MigrationBase):
 
         with open(os.path.join(GLSettings.client_path, 'data', 'favicon.ico'), 'r') as favicon_file:
             data = favicon_file.read()
-            files.db_add_file(self.store_new, data, u'favicon')
+            db_add_file(self.store_new, data, u'favicon')
             self.entries_count['File'] += 1
 
         file_path = os.path.join(GLSettings.static_path, 'custom_homepage.html')
@@ -223,47 +237,47 @@ class MigrationScript(MigrationBase):
             if files.db_get_file(self.store_new, u'homepage') == '':
                 with open(file_path, 'r') as homepage_file:
                     data = homepage_file.read()
-                    files.db_add_file(self.store_new, data, u'homepage')
+                    db_add_file(self.store_new, data, u'homepage')
                     self.entries_count['File'] += 1
 
             os.remove(file_path)
 
         #### Create ConfigL10N table and rows ####
         for lang in old_node.languages_enabled:
-            self.store_new.add(l10n.EnabledLanguage(lang))
+            l = self.model_to['EnabledLanguage']()
+            l.name = lang
+            self.store_new.add(l)
 
-        self._migrate_l10n_static_config(old_node, 'node')
-        self._migrate_l10n_static_config(old_notif, 'templates')
+        self._migrate_l10n_static_config(old_node, 'node', old_node.languages_enabled)
+        self._migrate_l10n_static_config(old_notif, 'templates', old_node.languages_enabled)
 
         # TODO assert that localized_keys matches exactly what is stored in the DB
 
         #### Create Config table and rows ####
 
         # Migrate Config saved in Node
-        for var_name, _ in GLConfig_v_35['node'].iteritems():
+        for var_name, _ in self.model_to['Config'].cfg_desc['node'].iteritems():
             old_val = getattr(old_node, var_name)
-            self.store_new.add(Config('node', var_name, old_val, cfg_desc=GLConfig_v_35))
+            self.store_new.add(self.model_to['Config']('node', var_name, old_val))
 
         # Migrate Config saved in Notification
-        for var_name, _ in GLConfig_v_35['notification'].iteritems():
+        for var_name, _ in self.model_to['Config'].cfg_desc['notification'].iteritems():
             old_val = getattr(old_notif, var_name)
 
             if var_name == 'exception_email_pgp_key_expiration' and old_val is not None:
                 old_val = properties.iso_strf_time(old_val)
 
-            self.store_new.add(Config('notification', var_name, old_val, cfg_desc=GLConfig_v_35))
+            self.store_new.add(self.model_to['Config']('notification', var_name, old_val))
 
         # Migrate private fields
-        self.store_new.add(Config('private', 'receipt_salt', old_node.receipt_salt))
-        self.store_new.add(Config('private', 'smtp_password', old_notif.password))
+        self.store_new.add(self.model_to['Config']('private', 'receipt_salt', old_node.receipt_salt))
+        self.store_new.add(self.model_to['Config']('private', 'smtp_password', old_notif.password))
 
         # Set old verions that will be then handled by the version update
-        self.store_new.add(Config('private', 'version', 'X.Y.Z'))
-        self.store_new.add(Config('private', 'version_db', 0))
+        self.store_new.add(self.model_to['Config']('private', 'version', 'X.Y.Z'))
+        self.store_new.add(self.model_to['Config']('private', 'version_db', 0))
 
-    def _migrate_l10n_static_config(self, old_obj, appd_key):
-        langs_enabled = l10n.EnabledLanguage.list(self.store_new)
-
+    def _migrate_l10n_static_config(self, old_obj, appd_key, langs):
         new_obj_appdata = self.appdata[appd_key]
 
         for name in old_obj.localized_keys:
@@ -271,7 +285,7 @@ class MigrationScript(MigrationBase):
             if xx_json_dict is None:
                 xx_json_dict = {} # protects against Nones in early db versions
             app_data_item = new_obj_appdata.get(name, {})
-            for lang in langs_enabled:
+            for lang in langs:
                 val = xx_json_dict.get(lang, None)
                 val_def = app_data_item.get(lang, "")
 
@@ -283,7 +297,7 @@ class MigrationScript(MigrationBase):
                 else: # val is None and val_def == ""
                     val_f = ""
 
-                s = ConfigL10N(lang, old_obj.__storm_table__, name, val_f)
+                s = self.model_to['ConfigL10N'](lang, old_obj.__storm_table__, name, val_f)
                 # Set the cfg item to customized if the final assigned val does
                 # not equal the current default template value
                 s.customized = val_f != val_def

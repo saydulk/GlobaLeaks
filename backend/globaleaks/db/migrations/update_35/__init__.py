@@ -2,9 +2,9 @@
 from storm.locals import Int, Bool, Unicode, DateTime, JSON
 
 from globaleaks.db.migrations.update import MigrationBase
+from globaleaks.db.migrations.update_37 import Config_v_36
+from globaleaks.db.migrations.update_37.config import NodeFactory
 from globaleaks.models import *
-from globaleaks.models.config import NodeFactory
-from globaleaks.models.l10n import EnabledLanguage
 
 
 class Context_v_34(ModelWithID):
@@ -90,8 +90,10 @@ class MigrationScript(MigrationBase):
             self.store_new.add(new_obj)
 
     def migrate_User(self):
-        default_language = NodeFactory(self.store_old).get_val('default_language')
-        enabled_languages = EnabledLanguage.list(self.store_old)
+        nf = NodeFactory(self.store_old)
+
+        default_language = nf.get_val('default_language')
+        enabled_languages = self.model_from['EnabledLanguage'].list(self.store_old)
 
         old_objs = self.store_old.find(self.model_from['User'])
         for old_obj in old_objs:
