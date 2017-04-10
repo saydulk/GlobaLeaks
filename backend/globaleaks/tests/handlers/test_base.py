@@ -9,6 +9,8 @@ from globaleaks.rest.errors import InvalidInputFormat
 from globaleaks.settings import GLSettings
 from globaleaks.tests import helpers
 
+from globaleaks.state import app_state
+
 FUTURE = 100
 
 
@@ -55,23 +57,23 @@ class TestBaseHandler(helpers.TestHandlerWithPopulatedDB):
 
     @inlineCallbacks
     def test_basic_auth_on_and_valid_authentication(self):
-        GLSettings.memory_copy.basic_auth = True
-        GLSettings.memory_copy.basic_auth_username = 'globaleaks'
-        GLSettings.memory_copy.basic_auth_password = 'globaleaks'
+        app_state.memc.basic_auth = True
+        app_state.memc.basic_auth_username = 'globaleaks'
+        app_state.memc.basic_auth_password = 'globaleaks'
         handler = self.request({}, headers={'Authorization': 'Basic Z2xvYmFsZWFrczpnbG9iYWxlYWtz'})
         yield handler.get_unauthenticated()
 
     def test_basic_auth_on_and_invalid_authentication(self):
-        GLSettings.memory_copy.basic_auth = True
-        GLSettings.memory_copy.basic_auth_username = 'globaleaks'
-        GLSettings.memory_copy.basic_auth_password = 'globaleaks'
+        app_state.memc.basic_auth = True
+        app_state.memc.basic_auth_username = 'globaleaks'
+        app_state.memc.basic_auth_password = 'globaleaks'
         handler = self.request({}, headers={'Authorization': 'Basic Z2xvYmFsZWFrczp3cm9uZ3Bhc3N3b3Jk'})
         self.assertRaises(HTTPAuthenticationRequired, handler.get_unauthenticated)
 
     def test_basic_auth_on_and_missing_authentication(self):
-        GLSettings.memory_copy.basic_auth = True
-        GLSettings.memory_copy.basic_auth_username = 'globaleaks'
-        GLSettings.memory_copy.basic_auth_password = 'globaleaks'
+        app_state.memc.basic_auth = True
+        app_state.memc.basic_auth_username = 'globaleaks'
+        app_state.memc.basic_auth_password = 'globaleaks'
         handler = self.request({})
         self.assertRaises(HTTPAuthenticationRequired, handler.get_unauthenticated)
 

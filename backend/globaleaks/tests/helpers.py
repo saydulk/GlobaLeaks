@@ -24,10 +24,10 @@ from globaleaks.handlers.admin.questionnaire import get_questionnaire, db_get_qu
 from globaleaks.handlers.admin.tenant import create_tenant
 from globaleaks.handlers.admin.user import create_admin_user, create_custodian_user
 from globaleaks.handlers.submission import create_submission
-from globaleaks.memory import refresh_memory_variables
 from globaleaks.rest.apicache import GLApiCache
 from globaleaks.settings import GLSettings
 from globaleaks.security import GLSecureTemporaryFile
+from globaleaks.state import app_state
 from globaleaks.utils import tempdict, token, utility
 from globaleaks.utils.structures import fill_localized_keys
 from globaleaks.utils.utility import datetime_null, datetime_now, datetime_to_ISO8601, \
@@ -230,7 +230,9 @@ class TestGL(unittest.TestCase):
         yield update_node_setting(1, 'allow_unencrypted', allow_unencrypted)
         yield update_node_setting(FIRST_TENANT, 'allow_unencrypted', allow_unencrypted)
 
-        yield refresh_memory_variables()
+        # TODO Create a new app_state for every request instead of
+        # modifying this existing one.
+        yield app_state.refresh()
 
         sup = ProcessSupervisor([], '127.0.0.1', 18082)
         GLSettings.state.process_supervisor = sup
@@ -536,16 +538,20 @@ class TestGLWithPopulatedDB(TestGL):
 
     @inlineCallbacks
     def fill_data(self):
+        root_ten = app_state.get_root_tenant()
+
         # fill_data/create_admin
-        self.dummyAdminUser = yield create_admin_user(FIRST_TENANT, copy.deepcopy(self.dummyAdminUser), 'en')
+        self.dummyAdminUser = yield create_admin_user(root_ten, copy.deepcopy(self.dummyAdminUser), 'en')
 
         # fill_data/create_custodian
-        self.dummyCustodianUser = yield create_custodian_user(FIRST_TENANT, copy.deepcopy(self.dummyCustodianUser), 'en')
-
+        self.dummyCustodianUser = yield create_custodian_user(root_ten, copy.deepcopy(self.dummyCustodianUser), 'en')
         # fill_data/create_receiver
-        self.dummyReceiver_1 = yield create_receiver(FIRST_TENANT, copy.deepcopy(self.dummyReceiver_1), 'en')
+        self.dummyReceiver_1 = yield create_receiver(root_ten, copy.deepcopy(self.dummyReceiver_1), 'en')
         self.dummyReceiverUser_1['id'] = self.dummyReceiver_1['id']
-        self.dummyReceiver_2 = yield create_receiver(FIRST_TENANT, copy.deepcopy(self.dummyReceiver_2), 'en')
+        self.dummyReceiver_2 = yield create_receiver(root_ten, copy.deepcopy(self.dummyReceiver_2), 'en')
+        self.dummyReceiver_1 = yield create_receiver(root_ten, copy.deepcopy(self.dummyReceiver_1), 'en')
+        self.dummyReceiverUser_1['id'] = self.dummyReceiver_1['id']
+        self.dummyReceiver_2 = yield create_receiver(root_ten, copy.deepcopy(self.dummyReceiver_2), 'en')
         self.dummyReceiverUser_2['id'] = self.dummyReceiver_2['id']
         receivers_ids = [self.dummyReceiver_1['id'], self.dummyReceiver_2['id']]
 

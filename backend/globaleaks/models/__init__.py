@@ -11,7 +11,6 @@ from globaleaks.models.validators import shorttext_v, longtext_v, \
     shortlocal_v, longlocal_v, shorturl_v, longurl_v, natnum_v, range_v
 from globaleaks.orm import transact
 from globaleaks.rest import errors
-from globaleaks.settings import GLSettings
 from globaleaks.utils.utility import datetime_now, datetime_null, uuid4
 from .properties import MetaModel, DateTime
 
@@ -323,9 +322,8 @@ class InternalTip(ModelWithID):
     wb_last_access = DateTime(default_factory=datetime_now)
     wb_access_counter = Int(default=0)
 
-    def wb_revoke_access_date(self):
-        revoke_date = self.wb_last_access + timedelta(days=GLSettings.memory_copy.wbtip_timetolive)
-        return revoke_date
+    # def wb_revoke_access_date(self):
+    # NOTE removed in (tid_state) changes
 
     def is_wb_access_revoked(self):
         return self.whistleblowertip is None

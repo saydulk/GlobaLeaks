@@ -12,7 +12,7 @@ import collections
 import copy
 
 from globaleaks.rest import errors
-from globaleaks.settings import GLSettings
+from globaleaks.state import app_state
 from globaleaks.utils.utility import ISO8601_to_pretty_str, ISO8601_to_day_str, \
     ISO8601_to_datetime, datetime_now, bytes_to_pretty_str
 
@@ -234,7 +234,8 @@ class TipKeyword(NodeKeyword, ContextKeyword, ReceiverKeyword):
         else:
             public_site = ''
 
-        if not GLSettings.memory_copy.accept_tor2web_access['receiver']:
+        # TODO TODO TODO (app_state) This must change
+        if not app_state.memc.accept_tor2web_access['receiver']:
             retstr = 'DISABLED'
         elif len(public_site):
             retstr =  '%s/#/status/%s' % (public_site, self.data['tip']['id'])
@@ -356,7 +357,8 @@ class ExpirationSummaryKeyword(NodeKeyword, ContextKeyword, ReceiverKeyword):
         else:
             public_site = ''
 
-        if not GLSettings.memory_copy.accept_tor2web_access['receiver']:
+        # TODO TODO TODO (app_state) This must change
+        if not app_state.memc.accept_tor2web_access['receiver']:
             retstr = 'DISABLED'
         elif len(public_site):
             retstr =  '%s/#/receiver/tips' % public_site

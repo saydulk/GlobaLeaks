@@ -9,42 +9,43 @@ from twisted.internet.defer import inlineCallbacks
 from globaleaks import models, security
 from globaleaks.handlers.base import BaseHandler
 from globaleaks.handlers.user import apply_pgp_options, user_serialize_user
-from globaleaks.memory import db_refresh_exception_delivery_list
 from globaleaks.orm import transact
 from globaleaks.rest import requests, errors
 from globaleaks.rest.apicache import GLApiCache
-from globaleaks.settings import GLSettings
 from globaleaks.utils.structures import fill_localized_keys
 from globaleaks.utils.utility import log, datetime_now
+from globaleaks.state import app_state
 
 
-def db_create_admin_user(store, tid, request, language):
+def db_create_admin_user(store, ten_state, request, language):
     """
     Creates a new admin
     Returns:
         (dict) the admin descriptor
     """
-    user = db_create_user(store, tid, request, language)
+    user = db_create_user(store, ten_state, request, language)
 
     log.debug("Created new admin")
 
-    db_refresh_exception_delivery_list(store)
+    # TODO (ten_state) this may change the global application state
+    app_state.db_refresh_exception_delivery_list(store)
 
     return user
 
 
 @transact
-def create_admin_user(store, tid, request, language):
-    return user_serialize_user(store, db_create_admin_user(store, tid, request, language), language)
+def create_admin_user(store, ten_state, request, language):
+    new_admin = db_create_admin_user(store, ten_state, request, language)
+    return user_serialize_user(store, new_admin, language)
 
 
-def db_create_custodian_user(store, tid, request, language):
+def db_create_custodian_user(store, ten_state, request, language):
     """
     Creates a new custodian
     Returns:
         (dict) the custodian descriptor
     """
-    user = db_create_user(store, tid, request, language)
+    user = db_create_user(store, ten_state, request, language)
 
     log.debug("Created new custodian")
 
@@ -52,17 +53,18 @@ def db_create_custodian_user(store, tid, request, language):
 
 
 @transact
-def create_custodian_user(store, tid, request, language):
-    return user_serialize_user(store, db_create_custodian_user(store, tid, request, language), language)
+def create_custodian_user(store, ten_state, request, language):
+    new_custodian = db_create_custodian_user(store, ten_state, request, language)
+    return user_serialize_user(store, new_custodian, language)
 
 
-def db_create_receiver(store, tid, request, language):
+def db_create_receiver(store, ten_state, request, language):
     """
     Creates a new receiver
     Returns:
         (dict) the receiver descriptor
     """
-    user = db_create_user(store, tid, request, language)
+    user = db_create_user(store, ten_state, request, language)
 
     fill_localized_keys(request, models.Receiver.localized_keys, language)
 
@@ -79,12 +81,12 @@ def db_create_receiver(store, tid, request, language):
 
 
 @transact
-def create_receiver_user(store, tid, request, language):
-    receiver = db_create_receiver(store, tid, request, language)
-    return user_serialize_user(store, receiver.user, language)
+def create_receiver_user(store, ten_state, request, language):
+    new_receiver = db_create_receiver(store, ten_state, request, language)
+    return user_serialize_user(store, new_receiver.user, language)
 
 
-def db_create_user(store, tid, request, language):
+def db_create_user(store, ten_state, request, language):
     fill_localized_keys(request, models.User.localized_keys, language)
 
     apply_pgp_options(request)
@@ -110,14 +112,14 @@ def db_create_user(store, tid, request, language):
 
     password = request['password']
     if len(password) == 0:
-        password = GLSettings.memory_copy.default_password
+        password = ten_state.memc.default_password
 
     user.salt = security.generateRandomSalt()
     user.password = security.hash_password(password, user.salt)
 
     store.add(user)
 
-    tenant = store.get(models.Tenant, tid)
+    tenant = store.get(models.Tenant, ten_state.id)
 
     tenant.users.add(user)
 
@@ -143,7 +145,8 @@ def db_admin_update_user(store, tid, user_id, request, language):
         user.password_change_date = datetime_now()
 
     if user.role == 'admin':
-        db_refresh_exception_delivery_list(store)
+        # TODO (ten_state) may not change delivery_list
+        app_state.db_refresh_exception_delivery_list(store)
 
     return user
 
@@ -166,12 +169,12 @@ def get_user(store, tid, user_id, language):
     return user_serialize_user(store, db_get_user(store, tid, user_id), language)
 
 
-def db_get_admin_users(store, tid):
+def db_get_admin_users(store, ten_state):
     users = store.find(models.User, models.User.role == u'admin',
                                     models.User.id == models.User_Tenant.user_id,
-                                    models.User_Tenant.tenant_id == tid)
+                                    models.User_Tenant.tenant_id == ten_state.id)
 
-    return [user_serialize_user(store, user, GLSettings.memory_copy.default_language) for user in users]
+    return [user_serialize_user(store, user, ten_state.memc.default_language) for user in users]
 
 
 @transact
@@ -229,14 +232,14 @@ class UsersCollection(BaseHandler):
         request = self.validate_message(self.request.body,
                                         requests.AdminUserDesc)
 
-        tid = self.current_tenant
+        ts = self.ten_state
 
         if request['role'] == 'receiver':
-            response = yield create_receiver_user(tid, request, self.request.language)
+            response = yield create_receiver_user(ts, request, self.request.language)
         elif request['role'] == 'custodian':
-            response = yield create_custodian_user(tid, request, self.request.language)
+            response = yield create_custodian_user(ts, request, self.request.language)
         elif request['role'] == 'admin':
-            response = yield create_admin_user(tid, request, self.request.language)
+            response = yield create_admin_user(ts, request, self.request.language)
         else:
             raise errors.InvalidInputFormat
 

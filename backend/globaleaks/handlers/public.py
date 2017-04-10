@@ -18,6 +18,8 @@ from globaleaks.settings import GLSettings
 from globaleaks.utils.sets import disjoint_union
 from globaleaks.utils.structures import get_localized_values
 
+from globaleaks.state import app_state
+
 
 def db_serialize_node(store, tid, language):
     """
@@ -227,7 +229,7 @@ def serialize_step(store, step, language):
     return get_localized_values(ret_dict, step, step.localized_keys, language)
 
 
-def serialize_receiver(store, tid, receiver, language):
+def serialize_receiver(ten_state, receiver, language):
     """
     Serialize a receiver description
 
@@ -240,7 +242,7 @@ def serialize_receiver(store, tid, receiver, language):
     ret_dict = {
         'id': receiver.id,
         'name': receiver.user.public_name,
-        'username': receiver.user.username if GLSettings.memory_copy.simplified_login else '',
+        'username': receiver.user.username if ten_state.memc.simplified_login else '',
         'state': receiver.user.state,
         'configuration': receiver.configuration,
         'presentation_order': receiver.presentation_order,
@@ -269,25 +271,25 @@ def db_get_questionnaire_list(store, language):
     return questionnaire_list
 
 
-def db_get_public_receiver_list(store, tid, language):
+def db_get_public_receiver_list(store, ten_state, language):
     # fetch receivers that have associated at least one context
     receivers = store.find(models.Receiver,
                            models.Receiver.id == models.User.id,
                            models.User.state != u'disabled',
                            models.Receiver.id == models.Receiver_Context.receiver_id,
                            models.Receiver.id == models.User_Tenant.user_id,
-                           models.User_Tenant.tenant_id == tid)
+                           models.User_Tenant.tenant_id == ten_state.id)
 
-    return [serialize_receiver(store, tid, receiver, language) for receiver in receivers]
+    return [serialize_receiver(ten_state, receiver, language) for receiver in receivers]
 
 
 @transact
-def get_public_resources(store, tid, language):
+def get_public_resources(store, ten_state, language):
     return {
-        'node': db_serialize_node(store, tid, language),
-        'contexts': db_get_public_context_list(store, tid, language),
+        'node': db_serialize_node(store, ten_state.id, language),
+        'contexts': db_get_public_context_list(store, ten_state.id, language),
         'questionnaires': db_get_questionnaire_list(store, language),
-        'receivers': db_get_public_receiver_list(store, tid, language)
+        'receivers': db_get_public_receiver_list(store, ten_state, language),
     }
 
 
@@ -303,6 +305,6 @@ class PublicResource(BaseHandler):
                                    'public',
                                    self.request.language,
                                    get_public_resources,
-                                   self.current_tenant,
+                                   self.ten_state,
                                    self.request.language)
         self.write(ret)

@@ -28,6 +28,7 @@ from txsocksx.client import SOCKS5ClientEndpoint
 
 from globaleaks import __version__
 from globaleaks.security import GLBPGP, sha256
+from globaleaks.state import app_state
 from globaleaks.settings import GLSettings
 from globaleaks.utils.utility import log
 
@@ -65,10 +66,11 @@ class GLClientContextFactory(ClientContextFactory):
         return ctx
 
 
-def sendmail(to_address, subject, body):
+def sendmail(ten_state, to_address, subject, body):
     """
     Sends an email using SMTPS/SMTP+TLS and torify the connection
 
+    @param ten_state: application state that provides the out going mail server
     @param to_address: the to address field of the email
     @param subject: the mail subject
     @param body: the mail body
@@ -90,15 +92,15 @@ def sendmail(to_address, subject, body):
 
             return result_deferred.errback(reason)
 
-        authentication_username=GLSettings.memory_copy.notif.username
-        authentication_password=GLSettings.memory_copy.private.smtp_password
-        from_address=GLSettings.memory_copy.notif.source_email
-        smtp_host=GLSettings.memory_copy.notif.server
-        smtp_port=GLSettings.memory_copy.notif.port
-        security=GLSettings.memory_copy.notif.security
+        authentication_username=ten_state.memc.notif.username
+        authentication_password=ten_state.memc.private.smtp_password
+        from_address=ten_state.memc.notif.source_email
+        smtp_host=ten_state.memc.notif.server
+        smtp_port=ten_state.memc.notif.port
+        security=ten_state.memc.notif.security
 
-        message = MIME_mail_build(GLSettings.memory_copy.notif.source_name,
-                                  GLSettings.memory_copy.notif.source_email,
+        message = MIME_mail_build(ten_state.memc.notif.source_name,
+                                  ten_state.memc.notif.source_email,
                                   to_address,
                                   to_address,
                                   subject,
@@ -132,7 +134,7 @@ def sendmail(to_address, subject, body):
             #  Hooking the test down to here is a trick to be able to test all the above code :)
             return defer.succeed(None)
 
-        if GLSettings.memory_copy.anonymize_outgoing_connections:
+        if ten_state.memc.anonymize_outgoing_connections:
             socksProxy = TCP4ClientEndpoint(reactor, GLSettings.socks_host, GLSettings.socks_port, timeout=GLSettings.mail_timeout)
             endpoint = SOCKS5ClientEndpoint(smtp_host.encode('utf-8'), smtp_port, socksProxy)
         else:
@@ -226,7 +228,10 @@ def extract_exception_traceback_and_send_email(e):
 
 
 def send_exception_email(exception_text):
-    if not hasattr(GLSettings.memory_copy.notif, 'exception_delivery_list'):
+    # TODO(tid_state) explictly use root_tenant state with other admins for
+    # exception mail delivery
+    root_tenant = app_state.get_root_tenant()
+    if not hasattr(root_tenant.memc.notif, 'exception_delivery_list'):
         log.err("Error: Cannot send mail exception before complete initialization.")
         return
 
@@ -234,7 +239,7 @@ def send_exception_email(exception_text):
         return
 
     mail_subject = "GlobaLeaks Exception"
-    delivery_list = GLSettings.memory_copy.notif.exception_delivery_list
+    delivery_list = root_tenant.memc.notif.exception_delivery_list
 
     if GLSettings.devel_mode:
         mail_subject +=  " [%s]" % GLSettings.developer_name
@@ -275,7 +280,7 @@ def send_exception_email(exception_text):
                     continue
 
             # avoid waiting for the notification to send and instead rely on threads to handle it
-            sendmail(mail_address, mail_subject, mail_body)
+            sendmail(root_tenant, mail_address, mail_subject, mail_body)
 
     except Exception as excep:
         # Avoid raising exception inside email logic to avoid chaining errors

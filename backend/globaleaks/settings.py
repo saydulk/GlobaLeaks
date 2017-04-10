@@ -21,7 +21,6 @@ from globaleaks import __version__, DATABASE_VERSION
 from globaleaks.utils.singleton import Singleton
 from globaleaks.utils.utility import datetime_now, log
 from globaleaks.utils.tor_exit_set import TorExitSet
-from globaleaks.utils.agent import get_tor_agent, get_web_agent
 
 this_directory = os.path.dirname(__file__)
 
@@ -104,9 +103,6 @@ class GLSettingsClass(object):
 
         self.authentication_lifetime = 3600
 
-        self.jobs = []
-        self.jobs_monitor = None
-
         self.RecentEventQ = []
         self.RecentAnomaliesQ = {}
         self.stats_collection_start_time = datetime_now()
@@ -127,29 +123,9 @@ class GLSettingsClass(object):
 
         self.receipt_regexp = u'[0-9]{16}'
 
-        # A lot of operations performed massively by globaleaks
-        # should avoid to fetch continuously variables from the DB so that
-        # it is important to keep this variables in memory
-        #
-        # Initialization is handled by db_refresh_memory_variables
-        self.memory_copy = OD({
-            'maximum_namesize': 128,
-            'maximum_textsize': 4096,
-            'maximum_filesize': 30,
-            'allow_iframes_inclusion': False,
-            'accept_tor2web_access': {
-                'admin': True,
-                'whistleblower': False,
-                'custodian': False,
-                'receiver': False,
-                'unauth': True,
-            },
-            'private': {
-                'https_enabled': False,
-            },
-            'anonymize_outgoing_connections': True,
-        })
-
+        # TODO(tid_state) converted to static variables
+        self.maximum_namesize = 128
+        self.maximum_textsize = 4096
 
         # Default request time uniform value
         self.side_channels_guard = 0.150
@@ -540,25 +516,6 @@ class GLSettingsClass(object):
     @staticmethod
     def make_db_uri(db_file_path):
         return 'sqlite:' + db_file_path + '?foreign_keys=ON'
-
-    def start_jobs(self):
-        from globaleaks.jobs import jobs_list
-        from globaleaks.jobs.base import GLJobsMonitor
-
-        for job in jobs_list:
-            j = job()
-            self.jobs.append(j)
-            j.schedule()
-
-        self.jobs_monitor = GLJobsMonitor(self.jobs)
-        self.jobs_monitor.schedule()
-
-    def get_agent(self):
-        if self.memory_copy.anonymize_outgoing_connections:
-            return get_tor_agent(self.socks_host, self.socks_port)
-        else:
-            return get_web_agent()
-
 
 # GLSettings is a singleton class exported once
 GLSettings = GLSettingsClass()

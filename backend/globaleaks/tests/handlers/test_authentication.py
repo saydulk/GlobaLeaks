@@ -7,8 +7,11 @@ from globaleaks.handlers.base import GLSessions
 from globaleaks.handlers.user import UserInstance
 from globaleaks.handlers.wbtip import WBTipInstance
 from globaleaks.rest import errors
-from globaleaks.settings import GLSettings
 from globaleaks.tests import helpers
+
+# state modified in these tests.
+from globaleaks.state import app_state
+from globaleaks.settings import GLSettings
 
 
 class TestAuthentication(helpers.TestHandlerWithPopulatedDB):
@@ -33,7 +36,7 @@ class TestAuthentication(helpers.TestHandlerWithPopulatedDB):
             'username': 'admin',
             'password': helpers.VALID_PASSWORD1
         }, headers={'X-Tor2Web': 'whatever'})
-        GLSettings.memory_copy.accept_tor2web_access['admin'] = True
+        app_state.memc.accept_tor2web_access['admin'] = True
         success = yield handler.post()
         self.assertTrue('session_id' in self.responses[0])
         self.assertEqual(len(GLSessions.keys()), 1)
@@ -44,7 +47,7 @@ class TestAuthentication(helpers.TestHandlerWithPopulatedDB):
             'username': 'admin',
             'password': helpers.VALID_PASSWORD1
         }, headers={'X-Tor2Web': 'whatever'})
-        GLSettings.memory_copy.accept_tor2web_access['admin'] = False
+        app_state.memc.accept_tor2web_access['admin'] = False
         yield self.assertFailure(handler.post(), errors.TorNetworkRequired)
 
     @inlineCallbacks
@@ -175,7 +178,7 @@ class TestReceiptAuth(helpers.TestHandlerWithPopulatedDB):
         handler = self.request({
             'receipt': self.dummySubmission['receipt']
         }, headers={'X-Tor2Web': 'whatever'})
-        GLSettings.memory_copy.accept_tor2web_access['whistleblower'] = True
+        app_state.memc.accept_tor2web_access['whistleblower'] = True
         success = yield handler.post()
         self.assertTrue('session_id' in self.responses[0])
         self.assertEqual(len(GLSessions.keys()), 1)
@@ -186,7 +189,7 @@ class TestReceiptAuth(helpers.TestHandlerWithPopulatedDB):
         handler = self.request({
             'receipt': self.dummySubmission['receipt']
         }, headers={'X-Tor2Web': 'whatever'})
-        GLSettings.memory_copy.accept_tor2web_access['whistleblower'] = False
+        app_state.memc.accept_tor2web_access['whistleblower'] = False
         yield self.assertFailure(handler.post(), errors.TorNetworkRequired)
 
     @inlineCallbacks

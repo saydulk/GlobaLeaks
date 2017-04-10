@@ -8,7 +8,7 @@
 import copy
 
 from globaleaks.models import Model
-from globaleaks.settings import GLSettings
+from globaleaks.state import app_state
 
 
 # Localized strings utility management
@@ -17,7 +17,7 @@ class Rosetta(object):
     """
     This Class can manage all the localized strings inside
     one Storm object. AKA: manage three language on a single
-    stone. Hell fucking yeah, History!
+    stone.
     """
 
     def __init__(self, keys):
@@ -41,7 +41,11 @@ class Rosetta(object):
         return ret
 
     def dump_localized_key(self, key, language):
-        default_language = GLSettings.memory_copy.default_language
+        # TODO(app_state) we may be able to completely drop
+        # the default_language condition. It may never be executed with the current code
+        # if the language passed is not in the accepted_langs, we have already chosen
+        # the default in RequestHandler.prepare
+        default_language = app_state.memc.default_language
 
         if key not in self._localized_strings:
             return ""

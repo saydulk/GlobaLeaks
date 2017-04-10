@@ -17,39 +17,38 @@ from globaleaks.models import Receiver, ReceiverTip
 from globaleaks.orm import transact
 from globaleaks.rest import requests, errors
 from globaleaks.rest.apicache import GLApiCache
-from globaleaks.settings import GLSettings
 from globaleaks.utils.structures import Rosetta, get_localized_values
 from globaleaks.utils.utility import log, datetime_to_ISO8601
 
 
-def receiver_serialize_receiver(store, tid, receiver, language):
+def receiver_serialize_receiver(store, ten_state, receiver, language):
     ret_dict = user_serialize_user(store, receiver.user, language)
 
     ret_dict.update({
-        'can_postpone_expiration': GLSettings.memory_copy.can_postpone_expiration or receiver.can_postpone_expiration,
-        'can_delete_submission': GLSettings.memory_copy.can_delete_submission or receiver.can_delete_submission,
-        'can_grant_permissions': GLSettings.memory_copy.can_grant_permissions or receiver.can_grant_permissions,
-        'tip_notification': receiver.tip_notification
+        'can_postpone_expiration': ten_state.memc.can_postpone_expiration or receiver.can_postpone_expiration,
+        'can_delete_submission':   ten_state.memc.can_delete_submission or receiver.can_delete_submission,
+        'can_grant_permissions':   ten_state.memc.can_grant_permissions or receiver.can_grant_permissions,
+        'tip_notification': receiver.tip_notification,
     })
 
     return get_localized_values(ret_dict, receiver, receiver.localized_keys, language)
 
 
 @transact
-def get_receiver_settings(store, tid, receiver_id, language):
+def get_receiver_settings(store, ten_state, receiver_id, language):
     receiver = Receiver.db_get(store, id=receiver_id)
-    return receiver_serialize_receiver(store, tid, receiver, language)
+    return receiver_serialize_receiver(store, ten_state, receiver, language)
 
 
 @transact
-def update_receiver_settings(store, tid, receiver_id, request, language):
+def update_receiver_settings(store, ten_state, receiver_id, request, language):
     user = db_user_update_user(store, receiver_id, request, language)
 
     receiver = Receiver.db_get(store, id=receiver_id)
 
     receiver.tip_notification = request['tip_notification']
 
-    return receiver_serialize_receiver(store, tid, receiver, language)
+    return receiver_serialize_receiver(store, ten_state, receiver, language)
 
 
 @transact
@@ -85,14 +84,14 @@ def get_receivertip_list(store, receiver_id, language):
 
 
 @transact
-def perform_tips_operation(store, receiver_id, operation, rtips_ids):
+def perform_tips_operation(store, ten_state, receiver_id, operation, rtips_ids):
     receiver = store.find(Receiver, Receiver.id == receiver_id).one()
 
     rtips = store.find(ReceiverTip, And(ReceiverTip.receiver_id == receiver_id,
                                         In(ReceiverTip.id, rtips_ids)))
 
     if operation == 'postpone':
-        can_postpone_expiration = GLSettings.memory_copy.can_postpone_expiration or receiver.can_postpone_expiration
+        can_postpone_expiration = ten_state.memc.can_postpone_expiration or receiver.can_postpone_expiration
         if not can_postpone_expiration:
             raise errors.ForbiddenOperation
 
@@ -100,7 +99,7 @@ def perform_tips_operation(store, receiver_id, operation, rtips_ids):
             db_postpone_expiration_date(rtip)
 
     elif operation == 'delete':
-        can_delete_submission =  GLSettings.memory_copy.can_delete_submission or receiver.can_delete_submission
+        can_delete_submission = ten_state.memc.can_delete_submission or receiver.can_delete_submission
         if not can_delete_submission:
             raise errors.ForbiddenOperation
 
@@ -128,7 +127,7 @@ class ReceiverInstance(BaseHandler):
         Response: ReceiverReceiverDesc
         Errors: ReceiverIdNotFound, InvalidInputFormat, InvalidAuthentication
         """
-        receiver_status = yield get_receiver_settings(self.current_tenant,
+        receiver_status = yield get_receiver_settings(self.ten_state,
                                                       self.current_user.user_id,
                                                       self.request.language)
 
@@ -147,7 +146,7 @@ class ReceiverInstance(BaseHandler):
         """
         request = self.validate_message(self.request.body, requests.ReceiverReceiverDesc)
 
-        receiver_status = yield update_receiver_settings(self.current_tenant,
+        receiver_status = yield update_receiver_settings(self.ten_state,
                                                          self.current_user.user_id,
                                                          request,
                                                          self.request.language)
@@ -195,6 +194,7 @@ class TipsOperations(BaseHandler):
         if request['operation'] not in ['postpone', 'delete']:
             raise errors.ForbiddenOperation
 
-        yield perform_tips_operation(self.current_user.user_id,
+        yield perform_tips_operation(self.ten_state,
+                                     self.current_user.user_id,
                                      request['operation'],
                                      request['rtips'])

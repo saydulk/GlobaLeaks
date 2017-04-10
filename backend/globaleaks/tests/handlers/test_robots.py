@@ -6,6 +6,8 @@ from globaleaks.handlers import robots
 from globaleaks.settings import GLSettings
 from globaleaks.tests import helpers
 
+from globaleaks.state import app_state
+
 
 class TestRobotstxtHandlerHandler(helpers.TestHandler):
     _handler = robots.RobotstxtHandler
@@ -14,7 +16,7 @@ class TestRobotstxtHandlerHandler(helpers.TestHandler):
     def test_get_with_indexing_disabled(self):
         handler = self.request()
 
-        GLSettings.memory_copy.allow_indexing = False
+        app_state.memc.allow_indexing = False
 
         yield handler.get()
 
@@ -25,8 +27,8 @@ class TestRobotstxtHandlerHandler(helpers.TestHandler):
     def test_get_with_indexing_enabled(self):
         handler = self.request()
 
-        GLSettings.memory_copy.allow_indexing = True
-        GLSettings.memory_copy.hostname = "www.globaleaks.org"
+        app_state.memc.allow_indexing = True
+        app_state.memc.hostname = "www.globaleaks.org"
 
         yield handler.get()
 
@@ -42,7 +44,7 @@ class TestSitemapHandlerHandler(helpers.TestHandler):
     def test_get_with_indexing_disabled(self):
         handler = self.request()
 
-        GLSettings.memory_copy.allow_indexing = False
+        app_state.memc.allow_indexing = False
 
         yield handler.get()
 
@@ -52,7 +54,7 @@ class TestSitemapHandlerHandler(helpers.TestHandler):
     def test_get_with_indexing_enabled(self):
         handler = self.request()
 
-        GLSettings.memory_copy.allow_indexing = True
+        app_state.memc.allow_indexing = True
 
         yield handler.get()
 

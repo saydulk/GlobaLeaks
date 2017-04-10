@@ -488,3 +488,23 @@ def disable_swap():
     log.debug("Using mlockall() system call to disable process swap")
     if libc.mlockall(MCL_CURRENT | MCL_FUTURE):
         log.err("mlockall failure: %s" % os.strerror(ctypes.get_errno()))
+
+
+def parse_accept_language_header(headers):
+    if "Accept-Language" in headers:
+        languages = headers["Accept-Language"].split(",")
+        locales = []
+        for language in languages:
+            parts = language.strip().split(";")
+            if len(parts) > 1 and parts[1].startswith("q="):
+                try:
+                    score = float(parts[1][2:])
+                except (ValueError, TypeError):
+                    score = 0.0
+            else:
+                score = 1.0
+            locales.append((parts[0], score))
+        if locales:
+            locales.sort(key=lambda pair: pair[1], reverse=True)
+            return [l[0] for l in locales]
+    return []
