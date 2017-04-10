@@ -656,6 +656,7 @@ factory('AdminTLSCfgFileResource', ['GLResource', function(GLResource) {
       field.y = 0;
       field.width = 0;
       field.children = [];
+      field.question_id = '';
       field.fieldgroup_id = fieldgroup_id;
       field.step_id = step_id;
       field.template_id = '';
@@ -665,8 +666,8 @@ factory('AdminTLSCfgFileResource', ['GLResource', function(GLResource) {
 
     new_field_from_template: function(template_id, step_id, fieldgroup_id) {
       var field = this.new_field(step_id, fieldgroup_id);
-      field.template_id = template_id;
       field.instance = 'reference';
+      field.template_id = template_id;
       return field;
     },
 
@@ -691,6 +692,7 @@ factory('AdminTLSCfgFileResource', ['GLResource', function(GLResource) {
       field.y = 0;
       field.width = 0;
       field.children = [];
+      field.question_id = '';
       field.fieldgroup_id = fieldgroup_id;
       field.step_id = '';
       field.template_id = '';
