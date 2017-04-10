@@ -7,6 +7,7 @@
 from twisted.internet.defer import inlineCallbacks
 
 from globaleaks import models
+from globaleaks.handlers.admin.context import db_associate_receiver_contexts
 from globaleaks.handlers.admin.user import db_create_receiver
 from globaleaks.handlers.base import BaseHandler
 from globaleaks.handlers.user import user_serialize_user
@@ -24,9 +25,9 @@ def admin_serialize_receiver(store, receiver, language):
     :param language: the language in which to localize data
     :return: a dictionary representing the serialization of the receiver
     """
-    contexts = [rc.context_id for rc in store.find(models.ReceiverContext, models.ReceiverContext.receiver_id == receiver.id)]
+    contexts = [rc.context_id for rc in store.find(models.Receiver_Context, models.Receiver_Context.receiver_id == receiver.id)]
 
-    ret_dict = user_serialize_user(receiver.user, language)
+    ret_dict = user_serialize_user(store, receiver.user, language)
 
     ret_dict.update({
         'can_delete_submission': receiver.can_delete_submission,
@@ -34,76 +35,60 @@ def admin_serialize_receiver(store, receiver, language):
         'can_grant_permissions': receiver.can_grant_permissions,
         'mail_address': receiver.user.mail_address,
         'configuration': receiver.configuration,
-        'contexts': contexts,
         'tip_notification': receiver.tip_notification,
-        'presentation_order': receiver.presentation_order
+        'presentation_order': receiver.presentation_order,
+        'contexts': contexts
     })
 
     return get_localized_values(ret_dict, receiver, receiver.localized_keys, language)
 
 
+def db_get_usermodel_list(store, model, tid):
+    return store.find(model, model.id == models.User_Tenant.user_id,
+                             models.User_Tenant.tenant_id == tid)
+
+def db_get_usermodel(store, model, id):
+    return store.find(model, id = id).one()
+
 @transact
-def get_receiver_list(store, language):
+def get_receiver_list(store, tid, language):
     """
     Returns:
         (list) the list of receivers
     """
     return [admin_serialize_receiver(store, receiver, language)
-        for receiver in store.find(models.Receiver)]
+        for receiver in db_get_usermodel_list(store, models.Receiver, tid)]
 
 
 @transact
-def create_receiver(store, request, language):
+def create_receiver(store, tid, request, language):
     request['tip_expiration_threshold'] = GLSettings.memory_copy.notif.tip_expiration_threshold
-    receiver = db_create_receiver(store, request, language)
+    receiver = db_create_receiver(store, tid, request, language)
+
+    db_associate_receiver_contexts(store, receiver, request['contexts'])
+
     return admin_serialize_receiver(store, receiver, language)
-
-
-def db_get_receiver(store, receiver_id):
-    """
-    raises :class:`globaleaks.errors.ReceiverIdNotFound` if the receiver does
-    not exist.
-    Returns:
-        (dict) the receiver
-
-    """
-    receiver = models.Receiver.get(store, receiver_id)
-    if not receiver:
-        raise errors.ReceiverIdNotFound
-
-    return receiver
 
 
 @transact
 def get_receiver(store, receiver_id, language):
-    return admin_serialize_receiver(store, db_get_receiver(store, receiver_id), language)
+    return admin_serialize_receiver(store, db_get_usermodel(store, models.Receiver, receiver_id), language)
 
 
 @transact
-def update_receiver(store, receiver_id, request, language):
+def update_receiver(store, tid, receiver_id, request, language):
     """
     Updates the specified receiver with the details.
     raises :class:`globaleaks.errors.ReceiverIdNotFound` if the receiver does
     not exist.
     """
-    receiver = models.Receiver.get(store, receiver_id)
-    if not receiver:
-        raise errors.ReceiverIdNotFound
+    receiver = models.Receiver.db_get(store, id=receiver_id)
 
     fill_localized_keys(request, models.Receiver.localized_keys, language)
 
-    contexts = request.get('contexts', [])
-
-    receiver.contexts.clear()
-
-    for context_id in contexts:
-        context = models.Context.get(store, context_id)
-        if not context:
-            raise errors.ContextIdNotFound
-
-        receiver.contexts.add(context)
-
     receiver.update(request)
+
+    db_associate_receiver_contexts(store, receiver, request['contexts'])
 
     return admin_serialize_receiver(store, receiver, language)
 
@@ -120,7 +105,8 @@ class ReceiversCollection(BaseHandler):
         Response: adminReceiverList
         Errors: None
         """
-        response = yield get_receiver_list(self.request.language)
+        response = yield get_receiver_list(self.current_tenant,
+                                           self.request.language)
 
         self.write(response)
 
@@ -137,7 +123,8 @@ class ReceiverInstance(BaseHandler):
         Response: AdminReceiverDesc
         Errors: InvalidInputFormat, ReceiverIdNotFound
         """
-        response = yield get_receiver(receiver_id, self.request.language)
+        response = yield get_receiver(receiver_id,
+                                      self.request.language)
 
         self.write(response)
 
@@ -155,8 +142,12 @@ class ReceiverInstance(BaseHandler):
         """
         request = self.validate_message(self.request.body, requests.AdminReceiverDesc)
 
-        response = yield update_receiver(receiver_id, request, self.request.language)
-        GLApiCache.invalidate(self.request.current_tenant_id)
+        response = yield update_receiver(self.current_tenant,
+                                         receiver_id,
+                                         request,
+                                         self.request.language)
+
+        GLApiCache.invalidate(self.current_tenant)
 
         self.set_status(201)
         self.write(response)

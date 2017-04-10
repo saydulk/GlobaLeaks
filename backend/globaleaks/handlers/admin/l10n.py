@@ -18,35 +18,36 @@ from twisted.internet.defer import inlineCallbacks
 from globaleaks.models import CustomTexts
 from globaleaks.handlers.base import BaseHandler
 from globaleaks.orm import transact
+from globaleaks.rest import errors
 from globaleaks.rest.apicache import GLApiCache
+
+
+def db_get_custom_texts(store, tid, lang):
+    return CustomTexts.db_get(store, And(CustomTexts.lang == lang,
+                                         CustomTexts.tid == tid))
 
 
 @transact
 def get_custom_texts(store, tid, lang):
-    texts = store.find(CustomTexts, And(CustomTexts.lang == lang,
-                                        CustomTexts.tid == tid)).one()
-    return texts.texts if texts is not None else {}
+    try:
+        custom_texts = db_get_custom_texts(store, tid, lang)
+    except:
+        return {}
+
+    return custom_texts.texts
 
 
 @transact
 def update_custom_texts(store, tid, lang, texts):
-    custom_texts = store.find(CustomTexts, And(CustomTexts.lang == unicode(lang),
-                                               CustomTexts.tid == tid)).one()
-    if custom_texts is None:
+    try:
+        custom_texts = db_get_custom_texts(store, tid, lang)
+    except errors.ModelNotFound:
         custom_texts = CustomTexts()
         custom_texts.lang = lang
         custom_texts.tid = tid
         store.add(custom_texts)
 
-    custom_texts.texts = texts
-
-
-@transact
-def delete_custom_texts(store, tid, lang):
-    custom_texts = store.find(CustomTexts, And(CustomTexts.lang == unicode(lang),
-                                               CustomTexts.tid == tid)).one()
-    if custom_texts is not None:
-        store.remove(custom_texts)
+    custom_texts.texts= texts
 
 
 class AdminL10NHandler(BaseHandler):
@@ -54,7 +55,7 @@ class AdminL10NHandler(BaseHandler):
     @BaseHandler.authenticated('admin')
     @inlineCallbacks
     def get(self, lang):
-        custom_texts = yield get_custom_texts(self.request.current_tenant_id, lang)
+        custom_texts = yield get_custom_texts(self.current_tenant, lang)
 
         self.write(custom_texts)
 
@@ -64,9 +65,9 @@ class AdminL10NHandler(BaseHandler):
     def put(self, lang):
         request = json.loads(self.request.body)
 
-        yield update_custom_texts(self.request.current_tenant_id, lang, request)
+        yield update_custom_texts(self.current_tenant, lang, request)
 
-        GLApiCache.invalidate(self.request.current_tenant_id)
+        GLApiCache.invalidate(self.current_tenant)
 
         self.set_status(202)  # Updated
 
@@ -74,6 +75,6 @@ class AdminL10NHandler(BaseHandler):
     @BaseHandler.authenticated('admin')
     @inlineCallbacks
     def delete(self, lang):
-        yield delete_custom_texts(self.request.current_tenant_id, lang)
+        yield CustomTexts.delete(tid=self.current_tenant, lang=unicode(lang))
 
-        GLApiCache.invalidate(self.request.current_tenant_id)
+        GLApiCache.invalidate(self.current_tenant)

@@ -281,11 +281,11 @@ AdminFieldAttrDescRaw = get_raw_request_format(AdminFieldAttrDesc, models.FieldA
 AdminFieldDesc = {
     'id': uuid_regexp_or_empty,
     'key': unicode,
-    'instance': field_instance_regexp,
     'editable': bool,
-    'template_id': uuid_regexp_or_empty,
+    'question_id': uuid_regexp_or_empty,
     'step_id': uuid_regexp_or_empty,
     'fieldgroup_id': uuid_regexp_or_empty,
+    'template_id': uuid_regexp_or_empty,
     'label': unicode,
     'description': unicode,
     'hint': unicode,

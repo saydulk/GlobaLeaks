@@ -125,13 +125,8 @@ def serialize_rtip(store, rtip, language):
 
 
 def db_access_rtip(store, user_id, rtip_id):
-    rtip = store.find(ReceiverTip, ReceiverTip.id == unicode(rtip_id),
-                      ReceiverTip.receiver_id == user_id).one()
-
-    if not rtip:
-        raise errors.TipIdNotFound
-
-    return rtip
+    return ReceiverTip.db_get(store, id = unicode(rtip_id),
+                                     receiver_id = user_id)
 
 
 def db_access_wbfile(store, user_id, wbfile_id):
@@ -160,7 +155,7 @@ def db_receiver_get_rfile_list(store, rtip_id):
 
 
 def db_receiver_get_wbfile_list(store, itip_id):
-    rtips = store.find(ReceiverTip, ReceiverTip.internaltip_id == itip_id)
+    rtips = store.find(ReceiverTip, internaltip_id=itip_id)
     rtips_ids = [rt.id for rt in rtips]
     wbfiles = store.find(WhistleblowerFile, In(WhistleblowerFile.receivertip_id, rtips_ids))
 
@@ -169,12 +164,7 @@ def db_receiver_get_wbfile_list(store, itip_id):
 
 @transact
 def register_wbfile_on_db(store, uploaded_file, receivertip_id):
-    rtip = store.find(ReceiverTip,
-                      ReceiverTip.id == receivertip_id).one()
-
-    if not rtip:
-        log.err("Cannot associate a file to a not existent receivertip!")
-        raise errors.TipIdNotFound
+    rtip = ReceiverTip.db_get(store, id=receivertip_id)
 
     rtip.internaltip.update_date = rtip.last_access = datetime_now()
 
@@ -337,10 +327,11 @@ def db_get_itip_comment_list(store, internaltip):
 
 
 @transact
-def create_identityaccessrequest(store, user_id, rtip_id, request, language):
+def create_identityaccessrequest(store, tid, user_id, rtip_id, request, language):
     rtip = db_access_rtip(store, user_id, rtip_id)
 
     iar = IdentityAccessRequest()
+    iar.tid = tid
     iar.request_motivation = request['request_motivation']
     iar.receivertip_id = rtip.id
     store.add(iar)
@@ -397,7 +388,7 @@ def delete_wbfile(store, user_id, file_id):
 
 
 def db_get_identityaccessrequest_list(store, rtip_id, language):
-    iars = store.find(IdentityAccessRequest, IdentityAccessRequest.receivertip_id == rtip_id)
+    iars = store.find(IdentityAccessRequest, receivertip_id = rtip_id)
 
     return [serialize_identityaccessrequest(iar, language) for iar in iars]
 
@@ -520,6 +511,7 @@ class WhistleblowerFileHandler(BaseHandler):
         rtip = db_access_rtip(store, self.current_user.user_id, tip_id)
         if not rtip.internaltip.context.enable_rc_to_wb_files:
             return errors.ForbiddenOperation()
+
         n = store.find(WhistleblowerFile, WhistleblowerFile.receivertip_id == rtip.id).count()
         if n > 100:
             return errors.FailedSanityCheck()
@@ -588,12 +580,10 @@ class WhistleblowerFileInstanceHandler(BaseHandler):
 
     @transact
     def download_wbfile(self, store, user_id, file_id):
-        wbfile = store.find(WhistleblowerFile,
-                            WhistleblowerFile.id == file_id).one()
-
-        if wbfile is None or not self.user_can_access(wbfile):
-            raise errors.FileIdNotFound
-
+        wbfile = WhistleblowerFile.db_get(store, id=file_id)
+        if not self.user_can_access(wbfile):
+            # throw here matches the failure from db_get
+            raise errors.ModelNotFound(WhistleblowerFile)
         self.access_wbfile(wbfile)
 
         return serializers.serialize_wbfile(wbfile)
@@ -684,7 +674,8 @@ class IdentityAccessRequestsCollection(BaseHandler):
         """
         request = self.validate_message(self.request.body, requests.ReceiverIdentityAccessRequestDesc)
 
-        identityaccessrequest = yield create_identityaccessrequest(self.current_user.user_id,
+        identityaccessrequest = yield create_identityaccessrequest(self.current_tenant,
+                                                                   self.current_user.user_id,
                                                                    tip_id,
                                                                    request,
                                                                    self.request.language)

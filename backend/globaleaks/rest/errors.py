@@ -393,4 +393,4 @@ class ModelNotFound(GLException):
         if model is None:
             self.reason = "Model not found"
         else:
-            self.reason = "Model of type {} has not been found".format(model)
+            self.reason = "Model of type {} has not been found".format(model.__name__)

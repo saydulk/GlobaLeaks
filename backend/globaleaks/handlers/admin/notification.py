@@ -1,10 +1,11 @@
+# -*- coding: UTF-8
 from twisted.internet.defer import inlineCallbacks
 
-from globaleaks.db import db_refresh_memory_variables
 from globaleaks.db.appdata import load_appdata
 from globaleaks.handlers.admin.node import admin_serialize_node
 from globaleaks.handlers.base import BaseHandler
 from globaleaks.handlers.user import get_user_settings
+from globaleaks.memory import refresh_memory_variables
 from globaleaks.models.config import NotificationFactory, PrivateFactory
 from globaleaks.models.l10n import NotificationL10NFactory
 from globaleaks.models.properties import iso_strf_time
@@ -43,8 +44,8 @@ def parse_pgp_options(notif, request):
         notif.set_val('exception_email_pgp_key_expiration', '')
 
 
-def admin_serialize_notification(store, language):
-    config_dict = NotificationFactory(store).admin_export()
+def admin_serialize_notification(store, tid, language):
+    config_dict = NotificationFactory(store, tid).admin_export()
 
     cmd_flags = {
         'reset_templates': False,
@@ -52,23 +53,23 @@ def admin_serialize_notification(store, language):
         'smtp_password': '',
     }
 
-    conf_l10n_dict = NotificationL10NFactory(store).localized_dict(language)
+    conf_l10n_dict = NotificationL10NFactory(store, tid).localized_dict(language)
 
     return disjoint_union(config_dict, cmd_flags, conf_l10n_dict)
 
 
-def db_get_notification(store, language):
-    return admin_serialize_notification(store, language)
+def db_get_notification(store, tid, language):
+    return admin_serialize_notification(store, tid, language)
 
 
 @transact
-def get_notification(store, language):
-    return db_get_notification(store, language)
+def get_notification(store, tid, language):
+    return db_get_notification(store, tid, language)
 
 
 @transact
-def update_notification(store, request, language):
-    notif_l10n = NotificationL10NFactory(store)
+def update_notification(store, tid, request, language):
+    notif_l10n = NotificationL10NFactory(store, tid)
     notif_l10n.update(request, language)
 
     if request.pop('reset_templates'):
@@ -77,17 +78,14 @@ def update_notification(store, request, language):
 
     smtp_pw = request.pop('smtp_password', u'')
     if smtp_pw != u'':
-        PrivateFactory(store).set_val('smtp_password', smtp_pw)
+        PrivateFactory(store, tid).set_val('smtp_password', smtp_pw)
 
-    notif = NotificationFactory(store)
+    notif = NotificationFactory(store, tid)
     notif.update(request)
 
     parse_pgp_options(notif, request)
 
-    # Since the Notification object has been changed refresh the global copy.
-    db_refresh_memory_variables(store)
-
-    return admin_serialize_notification(store, language)
+    return admin_serialize_notification(store, tid, language)
 
 
 class NotificationInstance(BaseHandler):
@@ -104,7 +102,8 @@ class NotificationInstance(BaseHandler):
         Response: AdminNotificationDesc
         Errors: None (return empty configuration, at worst)
         """
-        notification_desc = yield get_notification(self.request.language)
+        notification_desc = yield get_notification(self.current_tenant,
+                                                   self.request.language)
         self.write(notification_desc)
 
     @BaseHandler.transport_security_check('admin')
@@ -121,7 +120,11 @@ class NotificationInstance(BaseHandler):
         request = self.validate_message(self.request.body,
                                         requests.AdminNotificationDesc)
 
-        response = yield update_notification(request, self.request.language)
+        response = yield update_notification(self.current_tenant,
+                                             request,
+                                             self.request.language)
+
+        refresh_memory_variables()
 
         self.set_status(202)
         self.write(response)
@@ -143,16 +146,16 @@ class NotificationTestInstance(BaseHandler):
         Response: None
         """
         user = yield get_user_settings(self.current_user.user_id,
-                                     GLSettings.memory_copy.default_language)
+                                       GLSettings.memory_copy.default_language)
 
         language = user['language']
 
-        yield get_notification(language)
+        yield get_notification(self.current_tenant, language)
 
         data = {}
         data['type'] = 'admin_test_static'
-        data['node'] = yield admin_serialize_node(language)
-        data['notification'] = yield get_notification(language)
+        data['node'] = yield admin_serialize_node(self.current_tenant, language)
+        data['notification'] = yield get_notification(self.current_tenant, language)
 
         subject, body = Templating().get_mail_subject_and_body(data)
 

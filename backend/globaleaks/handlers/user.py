@@ -8,6 +8,7 @@ from twisted.internet.defer import inlineCallbacks
 
 from globaleaks import models
 from globaleaks.handlers.base import BaseHandler
+from globaleaks.handlers.admin.modelimgs import db_get_model_img
 from globaleaks.orm import transact
 from globaleaks.rest import requests, errors
 from globaleaks.security import change_password, parse_pgp_key
@@ -16,32 +17,28 @@ from globaleaks.utils.structures import get_localized_values
 from globaleaks.utils.utility import datetime_to_ISO8601, datetime_now, datetime_null
 
 
-def parse_pgp_options(user, request):
+def apply_pgp_options(request):
     """
-    Used for parsing PGP key infos and fill related user configurations.
+    Parses pgp info included in the request and overwrites fields of the
+    request.
 
-    @param user: the user orm object
     @param request: the dictionary containing the pgp infos to be parsed
     @return: None
     """
-    pgp_key_public = request['pgp_key_public']
-    remove_key = request['pgp_key_remove']
+    if not request['pgp_key_remove'] and request['pgp_key_public'] != '':
+        k = parse_pgp_key(request['pgp_key_public'])
+        if k is not None:
+            request['pgp_key_public'] = k['public']
+            request['pgp_key_fingerprint'] = k['fingerprint']
+            request['pgp_key_expiration'] = k['expiration']
+            return
 
-    k = None
-    if not remove_key and pgp_key_public != '':
-        k = parse_pgp_key(pgp_key_public)
-
-    if k is not None:
-        user.pgp_key_public = k['public']
-        user.pgp_key_fingerprint = k['fingerprint']
-        user.pgp_key_expiration = k['expiration']
-    else:
-        user.pgp_key_public = ''
-        user.pgp_key_fingerprint = ''
-        user.pgp_key_expiration = datetime_null()
+    request['pgp_key_public'] = ''
+    request['pgp_key_fingerprint'] = ''
+    request['pgp_key_expiration'] = datetime_null()
 
 
-def user_serialize_user(user, language):
+def user_serialize_user(store, user, language):
     """
     Serialize user description
 
@@ -70,7 +67,7 @@ def user_serialize_user(user, language):
         'pgp_key_public': user.pgp_key_public,
         'pgp_key_expiration': datetime_to_ISO8601(user.pgp_key_expiration),
         'pgp_key_remove': False,
-        'picture': user.picture.data if user.picture is not None else ''
+        'picture': user.img.data if user.img else ''
     }
 
     return get_localized_values(ret_dict, user, user.localized_keys, language)
@@ -78,12 +75,8 @@ def user_serialize_user(user, language):
 
 @transact
 def get_user_settings(store, user_id, language):
-    user = store.find(models.User, models.User.id == user_id).one()
-
-    if not user:
-        raise errors.UserIdNotFound
-
-    return user_serialize_user(user, language)
+    user = models.User.db_get(store, id=user_id)
+    return user_serialize_user(store, user, language)
 
 
 def db_user_update_user(store, user_id, request, language):
@@ -96,12 +89,13 @@ def db_user_update_user(store, user_id, request, language):
       - pgp key
     raises: globaleaks.errors.ReceiverIdNotFound` if the receiver does not exist.
     """
-    user = models.User.get(store, user_id)
+    user = models.User.db_get(store, id=user_id)
 
-    if not user:
-        raise errors.UserIdNotFound
+    apply_pgp_options(request)
 
-    user.language = request.get('language', GLSettings.memory_copy.default_language)
+    user.pgp_key_public = request['pgp_key_public']
+    user.pgp_key_fingerprint = request['pgp_key_fingerprint']
+    user.pgp_key_expiration = request['pgp_key_expiration']
 
     new_password = request['password']
     old_password = request['old_password']
@@ -117,17 +111,13 @@ def db_user_update_user(store, user_id, request, language):
 
         user.password_change_date = datetime_now()
 
-    # The various options related in manage PGP keys are used here.
-    parse_pgp_options(user, request)
-
     return user
 
 
 @transact
 def update_user_settings(store, user_id, request, language):
     user = db_user_update_user(store, user_id, request, language)
-
-    return user_serialize_user(user, language)
+    return user_serialize_user(store, user, language)
 
 
 class UserInstance(BaseHandler):
@@ -164,6 +154,7 @@ class UserInstance(BaseHandler):
         request = self.validate_message(self.request.body, requests.UserUserDesc)
 
         user_status = yield update_user_settings(self.current_user.user_id,
-                                                 request, self.request.language)
+                                                 request,
+                                                 self.request.language)
 
         self.write(user_status)

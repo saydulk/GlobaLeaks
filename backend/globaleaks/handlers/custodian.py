@@ -6,8 +6,8 @@
 
 from twisted.internet.defer import inlineCallbacks
 
+from globaleaks import models
 from globaleaks.handlers.base import BaseHandler
-from globaleaks.models import IdentityAccessRequest
 from globaleaks.orm import transact
 from globaleaks.rest import requests
 from globaleaks.utils.structures import Rosetta
@@ -37,21 +37,25 @@ def serialize_identityaccessrequest(identityaccessrequest, language):
 
 
 @transact
-def get_identityaccessrequest_list(store, language):
-    return [serialize_identityaccessrequest(iar, language)
-        for iar in store.find(IdentityAccessRequest, IdentityAccessRequest.reply == u'pending')]
+def get_identityaccessrequest_list(store, tid, language):
+    iars = store.find(models.IdentityAccessRequest, tid=tid, reply=u'pending')
+
+    return [serialize_identityaccessrequest(iar, language) for iar in iars]
+
+
+def db_get_identityaccessrequest(store, tid, identityaccessrequest_id):
+    return models.IdentityAccessRequest.db_get(store, tid=tid, id=identityaccessrequest_id)
 
 
 @transact
-def get_identityaccessrequest(store, identityaccessrequest_id, language):
-    iar = store.find(IdentityAccessRequest,
-                     IdentityAccessRequest.id == identityaccessrequest_id).one()
+def get_identityaccessrequest(store, tid, identityaccessrequest_id, language):
+    iar = db_get_identityaccessrequest(store, tid, identityaccessrequest_id)
     return serialize_identityaccessrequest(iar, language)
 
 
 @transact
-def update_identityaccessrequest(store, user_id, identityaccessrequest_id, request, language):
-    iar = store.find(IdentityAccessRequest, IdentityAccessRequest.id == identityaccessrequest_id).one()
+def update_identityaccessrequest(store, tid, user_id, identityaccessrequest_id, request, language):
+    iar = db_get_identityaccessrequest(store, tid, identityaccessrequest_id)
 
     if iar.reply == 'pending':
         iar.reply_date = datetime_now()
@@ -77,7 +81,8 @@ class IdentityAccessRequestInstance(BaseHandler):
         Response: IdentityAccessRequestDesc
         Errors: IdentityAccessRequestIdNotFound, InvalidInputFormat, InvalidAuthentication
         """
-        identityaccessrequest = yield get_identityaccessrequest(identityaccessrequest_id,
+        identityaccessrequest = yield get_identityaccessrequest(self.current_tenant,
+                                                                identityaccessrequest_id,
                                                                 self.request.language)
 
         self.write(identityaccessrequest)
@@ -95,7 +100,8 @@ class IdentityAccessRequestInstance(BaseHandler):
         """
         request = self.validate_message(self.request.body, requests.CustodianIdentityAccessRequestDesc)
 
-        identityaccessrequest = yield update_identityaccessrequest(self.current_user.user_id,
+        identityaccessrequest = yield update_identityaccessrequest(self.current_tenant,
+                                                                   self.current_user.user_id,
                                                                    identityaccessrequest_id,
                                                                    request,
                                                                    self.request.language)
@@ -117,6 +123,7 @@ class IdentityAccessRequestsCollection(BaseHandler):
         Response: identityaccessrequestsList
         Errors: InvalidAuthentication
         """
-        answer = yield get_identityaccessrequest_list(self.request.language)
+        answer = yield get_identityaccessrequest_list(self.current_tenant,
+                                                      self.request.language)
 
         self.write(answer)

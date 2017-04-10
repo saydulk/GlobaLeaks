@@ -45,7 +45,5 @@ class GLApiCache(object):
         for that tenant
         """
         memory_cache_dict = cls.per_tenant_cache.get(current_tid, {})
-        if resource_name is None:
-            memory_cache_dict = {}
-        else:
+        if resource_name is not None:
             memory_cache_dict.pop(resource_name, None)

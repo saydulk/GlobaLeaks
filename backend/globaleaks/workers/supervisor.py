@@ -7,6 +7,7 @@ from sys import executable
 
 from twisted.internet import defer, reactor
 
+from globaleaks.constants import ROOT_TENANT
 from globaleaks.models.config import PrivateFactory, load_tls_dict
 from globaleaks.orm import transact
 from globaleaks.utils import tls
@@ -56,7 +57,7 @@ class ProcessSupervisor(object):
 
     @defer.inlineCallbacks
     def db_maybe_launch_https_workers(self, store):
-        privFact = PrivateFactory(store)
+        privFact = PrivateFactory(store, ROOT_TENANT)
 
         on = privFact.get_val('https_enabled')
         if not on:
@@ -64,7 +65,7 @@ class ProcessSupervisor(object):
             yield defer.succeed(None)
             return
 
-        db_cfg = load_tls_dict(store)
+        db_cfg = load_tls_dict(store, ROOT_TENANT)
         self.tls_cfg.update(db_cfg)
 
         chnv = tls.ChainValidator()

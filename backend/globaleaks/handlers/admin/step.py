@@ -17,7 +17,12 @@ from globaleaks.rest.apicache import GLApiCache
 from globaleaks.utils.structures import fill_localized_keys
 
 
-def db_create_step(store, step_dict, language):
+def db_get_step(store, tid, step_id):
+    return store.find(models.Step, models.Step.id == step_id,
+                                   models.Step.questionnaire_id == models.Questionnaire.id).one()
+
+
+def db_create_step(store, tid, step_dict, language):
     """
     Create the specified step
 
@@ -32,20 +37,21 @@ def db_create_step(store, step_dict, language):
 
     for c in step_dict['children']:
         c['step_id'] = s.id
-        db_create_field(store, c, language)
+        db_create_field(store, tid, c, language)
 
     return s
 
 
 @transact
-def create_step(store, step, language):
+def create_step(store, tid, step, language):
     """
     Transaction that perform db_create_step
     """
-    return serialize_step(store, db_create_step(store, step, language), language)
+    step = db_create_step(store, tid, step, language)
+    return serialize_step(store, step, language)
 
 
-def db_update_step(store, step_id, request, language):
+def db_update_step(store, tid, step_id, request, language):
     """
     Update the specified step with the details.
     raises :class:`globaleaks.errors.StepIdNotFound` if the step does
@@ -57,9 +63,7 @@ def db_update_step(store, step_id, request, language):
     :param language: the language of the step definition dict
     :return: a serialization of the object
     """
-    step = models.Step.get(store, step_id)
-    if not step:
-        raise errors.StepIdNotFound
+    step = models.Step.db_get(store, id=step_id)
 
     fill_localized_keys(request, models.Step.localized_keys, language)
 
@@ -72,12 +76,12 @@ def db_update_step(store, step_id, request, language):
 
 
 @transact
-def update_step(store, step_id, request, language):
-    return serialize_step(store, db_update_step(store, step_id, request, language), language)
+def update_step(store, tid, step_id, request, language):
+    return serialize_step(store, db_update_step(store, tid, step_id, request, language), language)
 
 
 @transact
-def get_step(store, step_id, language):
+def get_step(store, tid, step_id, language):
     """
     Serialize the specified step
 
@@ -87,15 +91,11 @@ def get_step(store, step_id, language):
     :return: the currently configured step.
     :rtype: dict
     """
-    step = store.find(models.Step, models.Step.id == step_id).one()
-    if not step:
-        raise errors.StepIdNotFound
-
-    return serialize_step(store, step, language)
+    return serialize_step(store, db_get_step(store, tid, step_id), language)
 
 
 @transact
-def delete_step(store, step_id):
+def delete_step(store, tid, step_id):
     """
     Delete the step object corresponding to step_id
 
@@ -105,11 +105,9 @@ def delete_step(store, step_id):
     :param step_id: the id corresponding to the step.
     :raises StepIdNotFound: if no such step is found.
     """
-    step = store.find(models.Step, models.Step.id == step_id).one()
-    if not step:
-        raise errors.StepIdNotFound
-
-    store.remove(step)
+    step = db_get_step(store, tid, step_id)
+    if step:
+        store.remove(step)
 
 
 class StepCollection(BaseHandler):
@@ -132,9 +130,11 @@ class StepCollection(BaseHandler):
         request = self.validate_message(self.request.body,
                                         requests.AdminStepDesc)
 
-        response = yield create_step(request, self.request.language)
+        response = yield create_step(self.current_tenant,
+                                     request,
+                                     self.request.language)
 
-        GLApiCache.invalidate(self.request.current_tenant_id)
+        GLApiCache.invalidate(self.current_tenant)
 
         self.set_status(201)
         self.write(response)
@@ -159,7 +159,8 @@ class StepInstance(BaseHandler):
         :raises StepIdNotFound: if there is no step with such id.
         :raises InvalidInputFormat: if validation fails.
         """
-        response = yield get_step(step_id, self.request.language)
+        response = yield get_step(self.current_tenant,
+                                  step_id, self.request.language)
 
         self.write(response)
 
@@ -180,9 +181,12 @@ class StepInstance(BaseHandler):
         request = self.validate_message(self.request.body,
                                         requests.AdminStepDesc)
 
-        response = yield update_step(step_id, request, self.request.language)
+        response = yield update_step(self.current_tenant,
+                                     step_id,
+                                     request,
+                                     self.request.language)
 
-        GLApiCache.invalidate(self.request.current_tenant_id)
+        GLApiCache.invalidate(self.current_tenant)
 
         self.set_status(202) # Updated
         self.write(response)
@@ -199,6 +203,6 @@ class StepInstance(BaseHandler):
         :raises StepIdNotFound: if there is no step with such id.
         :raises InvalidInputFormat: if validation fails.
         """
-        yield delete_step(step_id)
+        yield delete_step(self.current_tenant, step_id)
 
-        GLApiCache.invalidate(self.request.current_tenant_id)
+        GLApiCache.invalidate(self.current_tenant)

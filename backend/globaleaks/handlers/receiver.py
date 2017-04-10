@@ -22,51 +22,41 @@ from globaleaks.utils.structures import Rosetta, get_localized_values
 from globaleaks.utils.utility import log, datetime_to_ISO8601
 
 
-# https://www.youtube.com/watch?v=BMxaLEGCVdg
-def receiver_serialize_receiver(receiver, language):
-    ret_dict = user_serialize_user(receiver.user, language)
+def receiver_serialize_receiver(store, tid, receiver, language):
+    ret_dict = user_serialize_user(store, receiver.user, language)
 
     ret_dict.update({
         'can_postpone_expiration': GLSettings.memory_copy.can_postpone_expiration or receiver.can_postpone_expiration,
         'can_delete_submission': GLSettings.memory_copy.can_delete_submission or receiver.can_delete_submission,
         'can_grant_permissions': GLSettings.memory_copy.can_grant_permissions or receiver.can_grant_permissions,
-        'tip_notification': receiver.tip_notification,
-        'contexts': [c.id for c in receiver.contexts]
+        'tip_notification': receiver.tip_notification
     })
 
     return get_localized_values(ret_dict, receiver, receiver.localized_keys, language)
 
 
 @transact
-def get_receiver_settings(store, receiver_id, language):
-    receiver = store.find(Receiver, Receiver.id == receiver_id).one()
-
-    if not receiver:
-        raise errors.ReceiverIdNotFound
-
-    return receiver_serialize_receiver(receiver, language)
+def get_receiver_settings(store, tid, receiver_id, language):
+    receiver = Receiver.db_get(store, id=receiver_id)
+    return receiver_serialize_receiver(store, tid, receiver, language)
 
 
 @transact
-def update_receiver_settings(store, receiver_id, request, language):
+def update_receiver_settings(store, tid, receiver_id, request, language):
     user = db_user_update_user(store, receiver_id, request, language)
-    if not user:
-        raise errors.UserIdNotFound
 
-    receiver = store.find(Receiver, Receiver.id == receiver_id).one()
-    if not receiver:
-        raise errors.ReceiverIdNotFound
+    receiver = Receiver.db_get(store, id=receiver_id)
 
     receiver.tip_notification = request['tip_notification']
 
-    return receiver_serialize_receiver(receiver, language)
+    return receiver_serialize_receiver(store, tid, receiver, language)
 
 
 @transact
 def get_receivertip_list(store, receiver_id, language):
     rtip_summary_list = []
 
-    for rtip in store.find(ReceiverTip, ReceiverTip.receiver_id == receiver_id):
+    for rtip in store.find(ReceiverTip, receiver_id=receiver_id):
         mo = Rosetta(rtip.internaltip.context.localized_keys)
         mo.acquire_storm_object(rtip.internaltip.context)
 
@@ -138,7 +128,8 @@ class ReceiverInstance(BaseHandler):
         Response: ReceiverReceiverDesc
         Errors: ReceiverIdNotFound, InvalidInputFormat, InvalidAuthentication
         """
-        receiver_status = yield get_receiver_settings(self.current_user.user_id,
+        receiver_status = yield get_receiver_settings(self.current_tenant,
+                                                      self.current_user.user_id,
                                                       self.request.language)
 
         self.write(receiver_status)
@@ -156,11 +147,12 @@ class ReceiverInstance(BaseHandler):
         """
         request = self.validate_message(self.request.body, requests.ReceiverReceiverDesc)
 
-        receiver_status = yield update_receiver_settings(self.current_user.user_id,
+        receiver_status = yield update_receiver_settings(self.current_tenant,
+                                                         self.current_user.user_id,
                                                          request,
                                                          self.request.language)
 
-        GLApiCache.invalidate(self.request.current_tenant_id)
+        GLApiCache.invalidate(self.current_tenant)
 
         self.write(receiver_status)
 
@@ -203,4 +195,6 @@ class TipsOperations(BaseHandler):
         if request['operation'] not in ['postpone', 'delete']:
             raise errors.ForbiddenOperation
 
-        yield perform_tips_operation(self.current_user.user_id, request['operation'], request['rtips'])
+        yield perform_tips_operation(self.current_user.user_id,
+                                     request['operation'],
+                                     request['rtips'])

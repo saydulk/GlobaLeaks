@@ -62,6 +62,5 @@ LANGUAGES_SUPPORTED = [
 
 # Sorting the list of dict using the key 'code'
 LANGUAGES_SUPPORTED.sort(key=operator.itemgetter('code'))
-
 # Creating LANGUAGES_SUPPORTED_CODES form the ordered LANGUAGES_SUPPORTED
-LANGUAGES_SUPPORTED_CODES = {i['code'] for i in LANGUAGES_SUPPORTED}
+LANGUAGES_SUPPORTED_CODES = list({i['code'] for i in LANGUAGES_SUPPORTED})
