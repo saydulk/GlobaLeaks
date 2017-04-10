@@ -1,7 +1,4 @@
-#/a -*- coding: UTF-8
-#
-#   statistics
-#   **********
+# -*- coding: UTF-8
 #
 # Implementation of classes handling the HTTP request to /node, public
 # exposed API.
@@ -246,7 +243,7 @@ class JobsTiming(BaseHandler):
     def get(self):
         response = []
 
-        for job in GLSettings.jobs:
+        for job in self.app_state.jobs:
             response.append({
               'name': job.name,
               'timings': job.last_executions

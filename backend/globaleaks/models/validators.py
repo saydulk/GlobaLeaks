@@ -11,6 +11,8 @@ from globaleaks.rest import errors
 from globaleaks.settings import GLSettings
 from globaleaks.utils.utility import log
 
+from globaleaks.settings import GLSettings
+
 
 def natnum_v(self, attr, value):
     """
@@ -19,6 +21,7 @@ def natnum_v(self, attr, value):
     if not isinstance(value, int) or value < 0:
         raise errors.InvalidModelInput("natnum_v: expected val to be in Z+ (%s:%d)" % (attr, value))
     return value
+
 
 class range_v(object):
   def __call__(self, model_obj, attr, value):
@@ -40,9 +43,9 @@ def shorttext_v(self, attr, value):
     if not isinstance(value, unicode):
         raise errors.InvalidModelInput("shorttext_v: expected unicode (%s:%s)" % (attr, value))
 
-    if GLSettings.enable_input_length_checks and len(value) > GLSettings.memory_copy.maximum_namesize:
+    if GLSettings.enable_input_length_checks and len(value) > GLSettings.maximum_namesize:
         raise errors.InvalidModelInput("shorttext_v: length need to be < of %d"
-                                        % GLSettings.memory_copy.maximum_namesize)
+                                        % GLSettings.maximum_namesize)
 
     return value
 
@@ -60,10 +63,10 @@ def longtext_v(self, attr, value):
         raise errors.InvalidModelInput("longtext_v: expected unicode (%s:%s)" %
                                        (attr, value))
 
-    if GLSettings.enable_input_length_checks and len(value) > GLSettings.memory_copy.maximum_textsize:
+    if GLSettings.enable_input_length_checks and len(value) > GLSettings.maximum_textsize:
         raise errors.InvalidModelInput("longtext_v: unicode text in %s " \
                                         "overcomes length " \
-                                        "limit %d" % (attr, GLSettings.memory_copy.maximum_textsize))
+                                        "limit %d" % (attr, GLSettings.maximum_textsize))
 
     return value
 
@@ -80,10 +83,10 @@ def dict_v(self, attr, value):
             subvalue = unicode(subvalue)
 
         if isinstance(subvalue, unicode):
-            if GLSettings.enable_input_length_checks and len(subvalue) > GLSettings.memory_copy.maximum_textsize:
+            if GLSettings.enable_input_length_checks and len(subvalue) > GLSettings.maximum_textsize:
                 raise errors.InvalidModelInput("dict_v: text for key %s in %s " \
                                                 "overcomes length limit of %d" % (key, attr,
-                                                                                  GLSettings.memory_copy.maximum_textsize))
+                                                                                  GLSettings.maximum_textsize))
 
         if isinstance(subvalue, dict):
             dict_v(self, attr, subvalue)

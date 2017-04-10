@@ -87,8 +87,11 @@ GLConfig = {
         'default_password': Unicode(validator=longtext_v, default=u'globaleaks'),
 
         # Advanced settings
+
+        # TODO(tid_state) static config
         'maximum_namesize': Int(validator=natnum_v, default=128),
         'maximum_textsize': Int(validator=natnum_v, default=4096),
+        # TODO
         'maximum_filesize': Int(validator=natnum_v, default=30),
         'tor2web_admin': Bool(default=True),
         'tor2web_custodian': Bool(default=True),
@@ -115,6 +118,7 @@ GLConfig = {
         'disable_key_code_hint': Bool(default=False),
         'disable_donation_panel': Bool(default=False),
 
+        # TODO(tid_state) Effectively only used by root_tenant
         'enable_captcha': Bool(default=True),
         'enable_proof_of_work': Bool(default=True),
 

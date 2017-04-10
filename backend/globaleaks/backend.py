@@ -8,20 +8,22 @@
 # We also set to kill the threadpool (the one used by Storm) when the
 # application shuts down.
 
-import os, sys
-import traceback
+import os, sys, traceback
 
 from twisted.application import internet, service
 from twisted.internet import reactor, defer
 from twisted.python import log as txlog, logfile as txlogfile
 
 from globaleaks.db import init_db, sync_clean_untracked_files
-from globaleaks.memory import sync_refresh_memory_variables
+from globaleaks.jobs import jobs_list
+from globaleaks.jobs.base import GLJobsMonitor
 from globaleaks.rest import api
 from globaleaks.settings import GLSettings
 from globaleaks.utils.utility import log, GLLogObserver
 from globaleaks.utils.sock import listen_tcp_on_sock, reserve_port_for_ip
 from globaleaks.workers.supervisor import ProcessSupervisor
+
+from globaleaks.state import app_state
 
 # this import seems unused but it is required in order to load the mocks
 import globaleaks.mocks.cyclone_mocks
@@ -66,28 +68,30 @@ def pre_listen_startup():
         init_db()
 
     sync_clean_untracked_files()
-    sync_refresh_memory_variables()
+
+    # TODO(tid_me) startup create tenant_id
+    app_state.sync_refresh()
 
 
 class GLService(service.Service):
-    def startService(self):
-        reactor.callLater(0, self.deferred_start)
+    jobs = []
+    jobs_monitor = None
 
     @defer.inlineCallbacks
-    def deferred_start(self):
+    def startService(self):
         try:
-            yield self._deferred_start()
+            yield self._start()
         except Exception as excep:
             fail_startup(excep)
 
     @defer.inlineCallbacks
-    def _deferred_start(self):
+    def _start(self):
         GLSettings.orm_tp.start()
         reactor.addSystemEventTrigger('after', 'shutdown', GLSettings.orm_tp.stop)
-        GLSettings.api_factory = api.get_api_factory()
+        api_factory = api.get_api_factory()
 
         for sock in GLSettings.http_socks:
-            listen_tcp_on_sock(reactor, sock.fileno(), GLSettings.api_factory)
+            listen_tcp_on_sock(reactor, sock.fileno(), api_factory)
 
         GLSettings.state.process_supervisor = ProcessSupervisor(GLSettings.https_socks,
                                                                 '127.0.0.1',
@@ -95,19 +99,32 @@ class GLService(service.Service):
 
         yield GLSettings.state.process_supervisor.maybe_launch_https_workers()
 
-        GLSettings.start_jobs()
+        self.start_jobs()
 
         print("GlobaLeaks is now running and accessible at the following urls:")
 
-        if GLSettings.memory_copy.reachable_via_web:
+        # TODO(tid_me) display all hostnames under tenants via tid:
+        # Label: h1, h2, h3
+        if app_state.memc.reachable_via_web:
             print("- http://%s:%d%s" % (GLSettings.bind_address, GLSettings.bind_port, GLSettings.api_prefix))
-            if GLSettings.memory_copy.hostname:
-                print("- http://%s:%d%s" % (GLSettings.memory_copy.hostname, GLSettings.bind_port, GLSettings.api_prefix))
+            if app_state.memc.hostname:
+                print("- http://%s:%d%s" % (app_state.memc.hostname, GLSettings.bind_port, GLSettings.api_prefix))
         else:
             print("- http://127.0.0.1:%d%s" % (GLSettings.bind_port, GLSettings.api_prefix))
 
         if GLSettings.onionservice is not None:
             print("- http://%s%s" % (GLSettings.onionservice, GLSettings.api_prefix))
+
+    def start_jobs(self):
+        # A temporary shim
+        for job in jobs_list:
+            j = job()
+            app_state.jobs.append(j)
+            j.schedule()
+
+        app_state.jobs_monitor = GLJobsMonitor(app_state.jobs)
+        app_state.jobs_monitor.schedule()
+
 
 
 application = service.Application('GLBackend')
@@ -117,8 +134,8 @@ if not GLSettings.nodaemon and GLSettings.logfile:
     directory = os.path.dirname(GLSettings.logfile)
 
     gl_logfile = txlogfile.LogFile(name, directory,
-                                 rotateLength=GLSettings.log_file_size,
-                                 maxRotatedFiles=GLSettings.num_log_files)
+                                   rotateLength=GLSettings.log_file_size,
+                                   maxRotatedFiles=GLSettings.num_log_files)
 
     application.setComponent(txlog.ILogObserver, GLLogObserver(gl_logfile).emit)
 

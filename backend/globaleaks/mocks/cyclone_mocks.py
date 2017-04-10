@@ -7,7 +7,6 @@ from cyclone.escape import native_str, utf8
 from cyclone.httpserver import HTTPConnection, HTTPRequest, _BadRequestException
 from cyclone.web import RequestHandler
 
-from globaleaks.settings import GLSettings
 from globaleaks.utils.utility import log
 
 
@@ -32,17 +31,11 @@ def mock_RequestHandler_set_default_headers(self):
     self.set_header("Referrer-Policy", "no-referrer")
 
     # to avoid Robots spidering, indexing, caching
-    if not GLSettings.memory_copy.allow_indexing:
-        self.set_header("X-Robots-Tag", "noindex")
+    self.set_header("X-Robots-Tag", "noindex")
 
     # to mitigate clickjaking attacks on iframes allowing only same origin
     # same origin is needed in order to include svg and other html <object>
-    if not GLSettings.memory_copy.allow_iframes_inclusion:
-        self.set_header("X-Frame-Options", "sameorigin")
-
-    if GLSettings.memory_copy.private.https_enabled:
-        self.set_header('Strict-Transport-Security', 'max-age=31536000')
-
+    self.set_header("X-Frame-Options", "sameorigin")
 
 def mock_HTTPConnection_on_headers(self, data):
     """

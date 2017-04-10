@@ -9,11 +9,12 @@ from globaleaks.handlers.admin import https
 from globaleaks.models.config import PrivateFactory
 from globaleaks.orm import transact
 from globaleaks.rest import errors
-from globaleaks.settings import GLSettings
 
 from globaleaks.tests import helpers
 from globaleaks.tests.utils import test_tls
 
+# NOTE test modifies global state
+from globaleaks.state import app_state
 
 @transact
 def set_dh_params(store, dh_params):
@@ -42,7 +43,7 @@ class TestFileHandler(helpers.TestHandler):
     @transact
     def set_enabled(self, store):
         PrivateFactory(store, FIRST_TENANT).set_val('https_enabled', True)
-        GLSettings.memory_copy.private.https_enabled = True
+        app_state.memc.private.https_enabled = True
 
     @inlineCallbacks
     def test_priv_key_file(self):

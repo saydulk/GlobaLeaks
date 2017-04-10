@@ -15,9 +15,10 @@ from globaleaks.models import Tenant, config
 from globaleaks.models.l10n import EnabledLanguage
 from globaleaks.orm import transact
 from globaleaks.rest import requests
-from globaleaks.memory import refresh_memory_variables
 from globaleaks.settings import GLSettings
 from globaleaks.utils.utility import log
+
+from globaleaks.state import app_state
 
 
 def serialize_tenant(tenant):
@@ -82,7 +83,7 @@ class TenantCollection(BaseHandler):
 
         response = yield create_tenant(request, load_appdata())
 
-        refresh_memory_variables()
+        yield app_state.refresh()
 
         self.set_status(201) # Created
         self.write(response)
@@ -102,4 +103,4 @@ class TenantInstance(BaseHandler):
 
         yield Tenant.delete(id=tenant_id)
 
-        refresh_memory_variables()
+        yield app_state.refresh()

@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 from globaleaks.anomaly import Alarm
 from globaleaks.rest import errors
 from globaleaks.security import sha256, generateRandomKey
+from globaleaks.state import app_state
 from globaleaks.settings import GLSettings
 from globaleaks.utils.tempdict import TempDict
 from globaleaks.utils.utility import log, datetime_now, datetime_to_ISO8601
@@ -99,7 +100,7 @@ class Token(object):
         return r
 
     def generate_token_challenges(self):
-        if Alarm.stress_levels['activity'] >= 1 and GLSettings.memory_copy.enable_captcha:
+        if Alarm.stress_levels['activity'] >= 1 and app_state.memc.enable_captcha:
             random_a = randint(0, 99)
             random_b = randint(0, 99)
 
@@ -109,7 +110,7 @@ class Token(object):
                 'solved': False
             }
 
-        if GLSettings.memory_copy.enable_proof_of_work:
+        if app_state.memc.enable_proof_of_work:
             self.proof_of_work = {
                 'question': generateRandomKey(20),
                 'solved': False

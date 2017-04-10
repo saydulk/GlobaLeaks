@@ -14,6 +14,7 @@ from globaleaks.models import InternalFile, ReceiverFile
 from globaleaks.orm import transact_sync
 from globaleaks.security import GLBPGP, GLSecureFile, generateRandomKey
 from globaleaks.settings import GLSettings
+from globaleaks.state import app_state
 from globaleaks.utils.utility import log
 
 __all__ = ['DeliverySchedule']
@@ -79,7 +80,8 @@ def receiverfile_planning(store):
                 'status': u'processing',
                 'path': ifile.file_path,
                 'size': ifile.size,
-                'receiver': admin_serialize_receiver(store, rtip.receiver, GLSettings.memory_copy.default_language)
+                # TODO (ten_state) receiver language could be outside of accepted set without foreign key constraint
+                'receiver': admin_serialize_receiver(store, rtip.receiver, rtip.receiver.user.language)
             })
 
     return receiverfiles_maps
@@ -147,7 +149,8 @@ def process_files(receiverfiles_maps):
                             rcounter, rfileinfo['receiver']['name'], rfileinfo['path'], excep)
                     )
                     rfileinfo['status'] = u'unavailable'
-            elif GLSettings.memory_copy.allow_unencrypted:
+            # TODO(ten_state) this needs to use the TENANTS settings....
+            elif app_state.memc.allow_unencrypted:
                 receiverfiles_map['plaintext_file_needed'] = True
                 rfileinfo['status'] = u'reference'
                 rfileinfo['path'] = plain_path

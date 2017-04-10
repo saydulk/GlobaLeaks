@@ -12,7 +12,7 @@ from twisted.internet.defer import inlineCallbacks
 from globaleaks import models, utils, LANGUAGES_SUPPORTED_CODES, LANGUAGES_SUPPORTED
 from globaleaks.db.appdata import load_appdata
 from globaleaks.handlers.base import BaseHandler
-from globaleaks.memory import refresh_memory_variables
+from globaleaks.state import app_state
 from globaleaks.models.config import NodeFactory, PrivateFactory
 from globaleaks.models.l10n import EnabledLanguage, NodeL10NFactory
 from globaleaks.orm import transact
@@ -146,7 +146,7 @@ class NodeInstance(BaseHandler):
 
         GLApiCache.invalidate(self.current_tenant)
 
-        refresh_memory_variables()
+        yield app_state.refresh()
 
         self.set_status(202) # Updated
         self.write(node_description)

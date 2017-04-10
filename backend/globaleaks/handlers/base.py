@@ -24,9 +24,11 @@ from globaleaks.event import track_handler
 from globaleaks.rest import errors, requests
 from globaleaks.security import GLSecureTemporaryFile, directory_traversal_check, generateRandomKey
 from globaleaks.settings import GLSettings
+from globaleaks.state import app_state
 from globaleaks.utils.mailutils import mail_exception_handler, send_exception_email
 from globaleaks.utils.tempdict import TempDict
-from globaleaks.utils.utility import log, deferred_sleep
+from globaleaks.utils.utility import log, deferred_sleep, parse_accept_language_header
+
 
 HANDLER_EXEC_TIME_THRESHOLD = 30
 
@@ -177,25 +179,8 @@ class BaseHandler(RequestHandler):
     handler_exec_time_threshold = HANDLER_EXEC_TIME_THRESHOLD
     filehandler = False
 
-    def parse_accept_language_header(self):
-        if "Accept-Language" in self.request.headers:
-            languages = self.request.headers["Accept-Language"].split(",")
-            locales = []
-            for language in languages:
-                parts = language.strip().split(";")
-                if len(parts) > 1 and parts[1].startswith("q="):
-                    try:
-                        score = float(parts[1][2:])
-                    except (ValueError, TypeError):
-                        score = 0.0
-                else:
-                    score = 1.0
-                locales.append((parts[0], score))
-            if locales:
-                locales.sort(key=lambda pair: pair[1], reverse=True)
-                return [l[0] for l in locales]
-
-        return GLSettings.memory_copy.default_language
+    def initialize(self):
+        self.app_state = app_state
 
     @staticmethod
     def authenticated(role):
@@ -210,7 +195,7 @@ class BaseHandler(RequestHandler):
                 If is logged with the right account, is accepted
                 If is logged with the wrong account, is rejected with a special message
                 """
-                if GLSettings.memory_copy.basic_auth:
+                if cls.ten_state.memc.basic_auth:
                     cls.basic_auth()
 
                 if not cls.current_user:
@@ -233,7 +218,7 @@ class BaseHandler(RequestHandler):
         If the user is logged in an authenticated sessions it does refresh the session.
         """
         def wrapper(cls, *args, **kwargs):
-            if GLSettings.memory_copy.basic_auth:
+            if cls.ten_state.memc.basic_auth:
                 cls.basic_auth()
 
             return f(cls, *args, **kwargs)
@@ -249,7 +234,8 @@ class BaseHandler(RequestHandler):
             def call_handler(cls, *args, **kwargs):
                 using_tor2web = cls.check_tor2web()
 
-                if using_tor2web and not GLSettings.memory_copy.accept_tor2web_access[role]:
+                # TODO(tid_review) consider T2W interactions
+                if using_tor2web and not cls.ten_state.memc.accept_tor2web_access[role]:
                     log.err("Denied request on Tor2web for role %s and resource '%s'" %
                             (role, cls.request.uri))
                     raise errors.TorNetworkRequired
@@ -269,11 +255,11 @@ class BaseHandler(RequestHandler):
         """
         Decorator that enforces https_enabled is set to True
         """
-        def wrapper(*args, **kwargs):
-            if not GLSettings.memory_copy.private.https_enabled:
+        def wrapper(cls, *args, **kwargs):
+            if not cls.ten_state.memc.private.https_enabled:
                 raise errors.FailedSanityCheck()
 
-            return f(*args, **kwargs)
+            return f(cls, *args, **kwargs)
 
         return wrapper
 
@@ -282,11 +268,11 @@ class BaseHandler(RequestHandler):
         """
         Decorator that enforces https_enabled is set to False
         """
-        def wrapper(*args, **kwargs):
-            if GLSettings.memory_copy.private.https_enabled:
+        def wrapper(cls, *args, **kwargs):
+            if cls.ten_state.memc.private.https_enabled:
                 raise errors.FailedSanityCheck()
 
-            return f(*args, **kwargs)
+            return f(cls, *args, **kwargs)
 
         return wrapper
 
@@ -297,8 +283,8 @@ class BaseHandler(RequestHandler):
                 auth_type, data = self.request.headers["Authorization"].split()
                 usr, pwd = base64.b64decode(data).split(":", 1)
                 if auth_type != "Basic" or \
-                    usr != GLSettings.memory_copy.basic_auth_username or \
-                    pwd != GLSettings.memory_copy.basic_auth_password:
+                    usr != self.ten_state.memc.basic_auth_username or \
+                    pwd != self.ten_state.memc.basic_auth_password:
                     msg = "Authentication failed"
             except AssertionError:
                 msg = "Authentication failed"
@@ -471,27 +457,38 @@ class BaseHandler(RequestHandler):
         # Map a hostname to the tenant ID for the request
         host_hdr = self.request.headers.get('Host')
         # TODO(tid_me) study of tor redirect and https redirect below
-        tid = GLSettings.memory_copy.tenant_map.get(host_hdr, None)
+        tid = self.app_state.tenant_label_id_map.get(host_hdr, None)
         if tid is None:
             raise errors.TenantIDNotFound()
 
         self.current_tenant = tid
+        self.ten_state = self.app_state.tenant_states[tid]
 
+        # TODO(tid_me) Make configuration choices based on tenant.
+        if self.app_state.memc.private.https_enabled:
+            self.set_header('Strict-Transport-Security', 'max-age=31536000')
+
+        if self.app_state.memc.allow_indexing:
+            self.clear_header("X-Robots-Tag")
+
+        if self.app_state.memc.allow_iframes_inclusion:
+            self.clear_header("X-Frame-Options")
+
+        # TODO(tid_me) needs SNI to work -- local_hosts may not work as well.
         if should_redirect_https(self.request,
-                                 GLSettings.memory_copy.private.https_enabled,
+                                 self.ten_state.memc.private.https_enabled,
                                  GLSettings.local_hosts):
             log.debug('Decided to redirect to https')
             self.redirect_https()
 
+        # TODO(tid_me) use multiple tor addresses
         # TODO handle the case where we are not interested in applying the exit list
         if should_redirect_tor(self.request,
                                GLSettings.onionservice,
-                               GLSettings.state.tor_exit_set):
+                               self.app_state.tor_exit_set):
             log.debug('Decided to redirect to tor')
             self.redirect_tor(GLSettings.onionservice)
 
-        # TODO TODO TODO
-        # TODO(tid_me) Moved the below block to use current_tenant_id
         self.request.request_type = None
         # TODO subclass BaseHandler in admin/fields
         if 'import' in self.request.arguments:
@@ -502,17 +499,17 @@ class BaseHandler(RequestHandler):
         language = self.request.headers.get('GL-Language')
 
         if language is None:
-            for l in self.parse_accept_language_header():
-                if l in GLSettings.memory_copy.languages_enabled:
+            for l in parse_accept_language_header(self.request.headers):
+                if l in self.ten_state.memc.languages_enabled:
                     language = l
                     break
 
-        if language is None or language not in GLSettings.memory_copy.languages_enabled:
-            language = GLSettings.memory_copy.default_language
+        if language is None or language not in self.ten_state.memc.languages_enabled:
+            # TODO can add an additional check which uses app_state.default_lang
+            language = self.ten_state.memc.default_language
 
         self.request.language = language
         self.set_header("Content-Language", language)
-        # TODO TODO TODO
 
     def redirect_https(self):
         in_url = self.request.full_url()
@@ -641,10 +638,10 @@ class BaseHandler(RequestHandler):
             total_file_size = int(self.request.arguments['flowTotalSize'][0]) if 'flowTotalSize' in self.request.arguments else chunk_size
             flow_identifier = self.request.arguments['flowIdentifier'][0] if 'flowIdentifier' in self.request.arguments else generateRandomKey(10)
 
-            if ((chunk_size / (1024 * 1024)) > GLSettings.memory_copy.maximum_filesize or
-                (total_file_size / (1024 * 1024)) > GLSettings.memory_copy.maximum_filesize):
+            if ((chunk_size / (1024 * 1024)) > self.app_state.memc.maximum_filesize or
+                (total_file_size / (1024 * 1024)) > self.app_state.memc.maximum_filesize):
                 log.err("File upload request rejected: file too big")
-                raise errors.FileTooBig(GLSettings.memory_copy.maximum_filesize)
+                raise errors.FileTooBig(self.app_state.memc.maximum_filesize)
 
             if flow_identifier not in GLUploads:
                 f = GLSecureTemporaryFile(GLSettings.tmp_upload_path)
@@ -750,6 +747,7 @@ class BaseHandler(RequestHandler):
 
 class BaseStaticFileHandler(BaseHandler):
     def initialize(self, path):
+        super(BaseStaticFileHandler, self).initialize()
         self.root = "%s%s" % (os.path.abspath(path), "/")
 
     @BaseHandler.unauthenticated

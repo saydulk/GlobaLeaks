@@ -14,8 +14,9 @@ from globaleaks.handlers.user import user_serialize_user
 from globaleaks.orm import transact
 from globaleaks.rest import errors, requests
 from globaleaks.rest.apicache import GLApiCache
-from globaleaks.settings import GLSettings
 from globaleaks.utils.structures import fill_localized_keys, get_localized_values
+
+from globaleaks.state import app_state
 
 
 def admin_serialize_receiver(store, receiver, language):
@@ -61,9 +62,9 @@ def get_receiver_list(store, tid, language):
 
 
 @transact
-def create_receiver(store, tid, request, language):
-    request['tip_expiration_threshold'] = GLSettings.memory_copy.notif.tip_expiration_threshold
-    receiver = db_create_receiver(store, tid, request, language)
+def create_receiver(store, ten_state, request, language):
+    request['tip_expiration_threshold'] = ten_state.memc.notif.tip_expiration_threshold
+    receiver = db_create_receiver(store, ten_state, request, language)
 
     db_associate_receiver_contexts(store, receiver, request['contexts'])
 

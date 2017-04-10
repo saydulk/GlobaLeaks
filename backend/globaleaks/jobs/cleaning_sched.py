@@ -23,8 +23,8 @@ from globaleaks.utils.utility import log, datetime_now, datetime_never, \
 __all__ = ['CleaningSchedule']
 
 
-def db_clean_expired_wbtips(store):
-    threshold = datetime_now() - timedelta(days=GLSettings.memory_copy.wbtip_timetolive)
+def db_clean_expired_wbtips(store, ten_state):
+    threshold = datetime_now() - timedelta(days=ten_state.memc.wbtip_timetolive)
 
     wbtips = store.find(models.WhistleblowerTip, models.WhistleblowerTip.id == models.InternalTip.id,
                                                  models.InternalTip.wb_last_access < threshold)
@@ -44,12 +44,12 @@ class CleaningSchedule(GLJob):
          return (3600 * 24) - (current_time.hour * 3600) - (current_time.minute * 60) - current_time.second
 
     @transact_sync
-    def clean_expired_wbtips(self, store):
+    def clean_expired_wbtips(self, store, ten_state):
         """
         This function checks all the InternalTips and deletes WhistleblowerTips
         that have not been accessed after `threshold`.
         """
-        db_clean_expired_wbtips(store)
+        db_clean_expired_wbtips(store, ten_state)
 
     @transact_sync
     def clean_expired_itips(self, store):
@@ -61,8 +61,8 @@ class CleaningSchedule(GLJob):
         db_delete_itips(store, store.find(models.InternalTip, models.InternalTip.expiration_date < datetime_now()))
 
     @transact_sync
-    def check_for_expiring_submissions(self, store):
-        threshold = datetime_now() + timedelta(hours=GLSettings.memory_copy.notif.tip_expiration_threshold)
+    def check_for_expiring_submissions(self, store, ten_state):
+        threshold = datetime_now() + timedelta(hours=ten_state.memc.notif.tip_expiration_threshold)
         receivers = store.find(models.Receiver)
         for receiver in receivers:
             rtips = store.find(models.ReceiverTip, models.ReceiverTip.internaltip_id == models.InternalTip.id,
@@ -151,11 +151,13 @@ class CleaningSchedule(GLJob):
             log.debug("Ending secure delete of file %s (execution time: %.2f)" % (file_to_delete, current_run_time))
 
     def operation(self):
-        self.clean_expired_wbtips()
+        for ten_state in app_state.tenant_states.values():
+            self.clean_expired_wbtips(ten_state)
 
         self.clean_expired_itips()
 
-        self.check_for_expiring_submissions()
+        for ten_state in app_state.tenant_states.values():
+            self.check_for_expiring_submissions(ten_state)
 
         self.clean_db()
 

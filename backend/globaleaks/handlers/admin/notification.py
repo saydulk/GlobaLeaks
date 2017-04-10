@@ -5,7 +5,6 @@ from globaleaks.db.appdata import load_appdata
 from globaleaks.handlers.admin.node import admin_serialize_node
 from globaleaks.handlers.base import BaseHandler
 from globaleaks.handlers.user import get_user_settings
-from globaleaks.memory import refresh_memory_variables
 from globaleaks.models.config import NotificationFactory, PrivateFactory
 from globaleaks.models.l10n import NotificationL10NFactory
 from globaleaks.models.properties import iso_strf_time
@@ -124,29 +123,28 @@ class NotificationInstance(BaseHandler):
                                              request,
                                              self.request.language)
 
-        refresh_memory_variables()
+        # TODO(ten_state) invalidate cur tenant_state
+        yield app_state.refresh()
 
         self.set_status(202)
         self.write(response)
 
 
 class NotificationTestInstance(BaseHandler):
-    """
+    '''
     Send Test Email Notifications to the admin that clicked the button.
-    This post takes no arguments and generates an empty response to both
-    successful and unsucessful requests. Understand that this handler blocks
-    its thread until both the db query and the SMTP round trip return.
-    """
+    '''
     @BaseHandler.transport_security_check('admin')
     @BaseHandler.authenticated('admin')
     @inlineCallbacks
     def post(self):
-        """
-        Parameters: None
-        Response: None
-        """
+        '''
+        This post takes no arguments and generates an empty response to both
+        successful and unsucessful requests. This handler blocks holds the 
+        callback until both the db query and the SMTP round trip return.
+        '''
         user = yield get_user_settings(self.current_user.user_id,
-                                       GLSettings.memory_copy.default_language)
+                                       self.ten_state.memc.default_language)
 
         language = user['language']
 
@@ -163,10 +161,9 @@ class NotificationTestInstance(BaseHandler):
 
         log.debug("Attempting to send test email to: %s" % send_to)
         # If sending the email fails the exception mail address will be mailed.
-        # If the failure is due to a bad SMTP config that will fail too, but it
-        # doesn't hurt to try!
+        # If the failure is due to a bad SMTP config ths will fail too.
         try:
-            yield sendmail(send_to, subject, body)
+            yield sendmail(self.ten_state, send_to, subject, body)
         except Exception as e:
             log.debug("Sending to admin failed. Trying an exception mail")
             raise e

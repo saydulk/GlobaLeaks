@@ -15,13 +15,13 @@ import copy
 from twisted.internet import defer
 
 from globaleaks import models
-from globaleaks.constants import ROOT_TENANT
 from globaleaks.event import EventTrackQueue
 from globaleaks.handlers.admin.node import db_admin_serialize_node
 from globaleaks.handlers.admin.notification import db_get_notification
 from globaleaks.handlers.admin.user import db_get_admin_users
 from globaleaks.orm import transact
 from globaleaks.rest.apicache import GLApiCache
+from globaleaks.state import app_state
 from globaleaks.settings import GLSettings
 from globaleaks.utils.singleton import Singleton
 from globaleaks.utils.templating import Templating
@@ -53,27 +53,27 @@ def get_disk_anomaly_conditions(free_workdir_bytes, total_workdir_bytes, free_ra
 
     def info_msg_0():
         return "free_disk_megabytes <= %d or free_disk_percentage <= %d" % \
-            (GLSettings.memory_copy.threshold_free_disk_megabytes_high,
-             GLSettings.memory_copy.threshold_free_disk_percentage_high)
+            (app_state.memc.threshold_free_disk_megabytes_high,
+             app_state.memc.threshold_free_disk_percentage_high)
 
     def info_msg_1():
         return "free_ramdisk_megabytes <= %d" % threshold_free_ramdisk_megabytes
 
     def info_msg_2():
         return "free_disk_megabytes <= %d or free_disk_percentage <= %d" % \
-            (GLSettings.memory_copy.threshold_free_disk_megabytes_medium,
-             GLSettings.memory_copy.threshold_free_disk_percentage_medium)
+            (app_state.memc.threshold_free_disk_megabytes_medium,
+             app_state.memc.threshold_free_disk_percentage_medium)
 
     def info_msg_3():
         return "free_disk_megabytes <= %d or free_disk_percentage <= %d" % \
-            (GLSettings.memory_copy.threshold_free_disk_megabytes_low,
-             GLSettings.memory_copy.threshold_free_disk_percentage_low)
+            (app_state.memc.threshold_free_disk_megabytes_low,
+             app_state.memc.threshold_free_disk_percentage_low)
 
     # list of bad conditions ordered starting from the worst case scenario
     conditions = [
         {
-            'condition': free_disk_megabytes <= GLSettings.memory_copy.threshold_free_disk_megabytes_high or \
-                         free_disk_percentage <= GLSettings.memory_copy.threshold_free_disk_percentage_high,
+            'condition': free_disk_megabytes <= app_state.memc.threshold_free_disk_megabytes_high or \
+                         free_disk_percentage <= app_state.memc.threshold_free_disk_percentage_high,
             'info_msg': info_msg_0,
             'stress_level': 3,
             'accept_submissions': False
@@ -85,15 +85,15 @@ def get_disk_anomaly_conditions(free_workdir_bytes, total_workdir_bytes, free_ra
             'accept_submissions': False
         },
         {
-            'condition': free_disk_megabytes <= GLSettings.memory_copy.threshold_free_disk_megabytes_medium or \
-                         free_disk_percentage <= GLSettings.memory_copy.threshold_free_disk_percentage_medium,
+            'condition': free_disk_megabytes <= app_state.memc.threshold_free_disk_megabytes_medium or \
+                         free_disk_percentage <= app_state.memc.threshold_free_disk_percentage_medium,
             'info_msg': info_msg_2,
             'stress_level': 2,
             'accept_submissions': True
         },
         {
-            'condition': free_disk_megabytes <= GLSettings.memory_copy.threshold_free_disk_megabytes_low or \
-                         free_disk_percentage <= GLSettings.memory_copy.threshold_free_disk_percentage_low,
+            'condition': free_disk_megabytes <= app_state.memc.threshold_free_disk_megabytes_low or \
+                         free_disk_percentage <= app_state.memc.threshold_free_disk_percentage_low,
             'info_msg': info_msg_3,
             'stress_level': 1,
             'accept_submissions': True
@@ -224,7 +224,7 @@ class AlarmClass(object):
             # we are lucky! no stress activities detected, no mail needed
             return
 
-        if GLSettings.memory_copy.notif.disable_admin_notification_emails:
+        if app_state.memc.notif.disable_admin_notification_emails:
             return
 
         if self.last_alarm_email and not is_expired(self.last_alarm_email,
@@ -240,7 +240,7 @@ class AlarmClass(object):
 
         @transact
         def _generate_admin_alert_mail(store, alert):
-            for user_desc in db_get_admin_users(store, ROOT_TENANT):
+            for user_desc in db_get_admin_users(store, app_state.get_root_tenant()):
                 user_language = user_desc['language']
 
                 data = {

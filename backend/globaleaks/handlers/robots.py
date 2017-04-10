@@ -6,7 +6,6 @@
 # exposed API.
 
 from globaleaks.handlers.base import BaseHandler
-from globaleaks.settings import GLSettings
 
 
 class RobotstxtHandler(BaseHandler):
@@ -20,8 +19,8 @@ class RobotstxtHandler(BaseHandler):
 
         self.write("User-agent: *\n")
 
-        if GLSettings.memory_copy.allow_indexing:
-            site = 'https://' + GLSettings.memory_copy.hostname
+        if self.ten_state.memc.allow_indexing:
+            site = 'https://' + self.ten_state.memc.hostname
             self.write("Allow: /\n")
             self.write("Sitemap: %s/sitemap.xml" % site)
         else:
@@ -35,11 +34,11 @@ class SitemapHandler(BaseHandler):
         """
         Get the sitemap.xml
         """
-        if not GLSettings.memory_copy.allow_indexing:
+        if not self.ten_state.memc.allow_indexing:
             self.set_status(404)
             return
 
-        site = 'https://' + GLSettings.memory_copy.hostname
+        site = 'https://' + self.ten_state.memc.hostname
 
         self.set_header('Content-Type', 'text/xml')
 
@@ -52,8 +51,8 @@ class SitemapHandler(BaseHandler):
                        "    <changefreq>weekly</changefreq>\n" +
                        "    <priority>1.00</priority>\n")
 
-            for lang in sorted(GLSettings.memory_copy.languages_enabled):
-                if lang != GLSettings.memory_copy.default_language:
+            for lang in sorted(self.ten_state.memc.languages_enabled):
+                if lang != self.ten_state.memc.default_language:
                     l = lang.lower()
                     l = l.replace('_', '-')
                     self.write("    <xhtml:link rel='alternate' hreflang='" + l + "' href='" + site + "/#/?lang=" + lang + "' />\n")

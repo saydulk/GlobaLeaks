@@ -352,12 +352,10 @@ def try_to_enable_https(store, tid):
 
     cv = tls.ChainValidator()
     db_cfg = load_tls_dict(store, tid)
-    db_cfg['https_enabled'] = False
 
-    ok, err = cv.validate(db_cfg)
+    ok, err = cv.validate(db_cfg, must_be_disabled=False)
     if ok:
         prv_fact.set_val('https_enabled', True)
-        GLSettings.memory_copy.private.https_enabled = True
     else:
         raise err
 
@@ -383,6 +381,8 @@ class ConfigHandler(BaseHandler):
     def post(self):
         try:
             yield try_to_enable_https(self.current_tenant)
+            self.ten_state.memc.private.https_enabled = True
+
             yield GLSettings.state.process_supervisor.maybe_launch_https_workers()
             self.set_status(200)
         except Exception as e:
@@ -398,7 +398,8 @@ class ConfigHandler(BaseHandler):
         Disables HTTPS config and shutdown subprocesses.
         '''
         yield disable_https(self.current_tenant)
-        GLSettings.memory_copy.private.https_enabled = False
+        self.ten_state.memc.private.https_enabled = False
+
         yield GLSettings.state.process_supervisor.shutdown()
         self.set_status(200)
 

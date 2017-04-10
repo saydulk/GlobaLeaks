@@ -15,6 +15,7 @@ from globaleaks.handlers.rtip import serialize_rtip, serialize_message, serializ
 from globaleaks.jobs.base import GLJob
 from globaleaks.orm import transact, transact_sync
 from globaleaks.security import GLBPGP
+from globaleaks.state import app_state
 from globaleaks.settings import GLSettings
 from globaleaks.utils.mailutils import sendmail
 from globaleaks.utils.templating import Templating
@@ -137,19 +138,19 @@ class MailGenerator(object):
           log.debug("Discarding emails for %s due to receiver's preference." % receiver_id)
           return
 
-        # https://github.com/globaleaks/GlobaLeaks/issues/798
-        # TODO: the current solution is global and configurable only by the admin
+        # TODO(tid_state) the current solution is global and configurable only 
+        # by the root admin. See also #798
         sent_emails = GLSettings.get_mail_counter(receiver_id)
-        if sent_emails >= GLSettings.memory_copy.notif.notification_threshold_per_hour:
+        if sent_emails >= app_state.memc.notif.notification_threshold_per_hour:
             log.debug("Discarding emails for receiver %s due to threshold already exceeded for the current hour" %
                       receiver_id)
             return
 
         GLSettings.increment_mail_counter(receiver_id)
-        if sent_emails >= GLSettings.memory_copy.notif.notification_threshold_per_hour:
+        if sent_emails >= app_state.memc.notif.notification_threshold_per_hour:
             log.info("Reached threshold of %d emails with limit of %d for receiver %s" % (
                      sent_emails,
-                     GLSettings.memory_copy.notif.notification_threshold_per_hour,
+                     app_state.memc.notif.notification_threshold_per_hour,
                      receiver_id)
             )
 
@@ -190,7 +191,7 @@ class MailGenerator(object):
 
 
     @transact_sync
-    def generate(self, store):
+    def generate(self, store, ten_state):
         for trigger in ['ReceiverTip', 'Comment', 'Message', 'ReceiverFile']:
             model = trigger_model_map[trigger]
 
@@ -198,7 +199,7 @@ class MailGenerator(object):
             for element in elements:
                 element.new = False
 
-                if GLSettings.memory_copy.notif.disable_receiver_notification_emails:
+                if ten_state.memc.notif.disable_receiver_notification_emails:
                     continue
 
                 data = {
@@ -255,6 +256,9 @@ class NotificationSchedule(GLJob):
             threads.blockingCallFromThread(reactor, self.sendmail, mail)
 
     def operation(self):
-        MailGenerator().generate()
+        # TODO TODO TODO This will perform all of the meaningful actions in first tenant run
+        for ten_state in app_state.tenant_states.values():
+            MailGenerator().generate(ten_state)
+        # TODO TODO TODO
 
         self.spool_emails()
