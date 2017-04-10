@@ -4,51 +4,38 @@ from storm.expr import And, In
 from storm.locals import Unicode, Storm, Bool
 
 from globaleaks import LANGUAGES_SUPPORTED_CODES
-from globaleaks.rest import errors
+from globaleaks.models import ModelWithTID
 
 
-class EnabledLanguage(Storm):
-    __storm_table__ = 'enabledlanguage'
+class EnabledLanguage(ModelWithTID):
+    __storm_primary__ = 'tid', 'name'
 
-    name = Unicode(primary=True)
+    name = Unicode()
 
-    def __init__(self, name=None, migrate=False):
-        if migrate:
-            return
-        self.name = unicode(name)
+    int_keys = ['tid']
+
+    unicode_keys = ['name']
 
     def __repr__(self):
         return "<EnabledLang: %s>" % self.name
 
     @classmethod
-    def add_new_lang(cls, store, lang_code, appdata):
-        store.add(cls(lang_code))
-
-        NotificationL10NFactory(store).initialize(lang_code, appdata)
-        NodeL10NFactory(store).initialize(lang_code, appdata)
+    def list(cls, store, tid):
+        return list(store.find(cls, cls.tid==tid).values(cls.name))
 
     @classmethod
-    def remove_old_langs(cls, store, lang_codes):
-        store.find(cls, In(cls.name, lang_codes)).remove()
+    def enable_language(cls, store, tid, lang, appdata):
+        store.add(cls({'tid': tid, 'name': lang}))
+        NotificationL10NFactory(store, tid).initialize(lang, appdata)
+        NodeL10NFactory(store, tid).initialize(lang, appdata)
 
     @classmethod
-    def list(cls, store):
-        return [e.name for e in store.find(cls)]
-
-    @classmethod
-    def add_all_supported_langs(cls, store, appdata_dict):
-        node_l10n = NodeL10NFactory(store)
-        notif_l10n = NotificationL10NFactory(store)
-
-        for lang_code in LANGUAGES_SUPPORTED_CODES:
-            store.add(cls(lang_code))
-            node_l10n.initialize(lang_code, appdata_dict)
-            notif_l10n.initialize(lang_code, appdata_dict)
+    def disable_language(cls, store, tid, lang):
+        store.find(cls, tid=tid, name=lang).remove()
 
 
-class ConfigL10N(Storm):
-    __storm_table__ = 'config_l10n'
-    __storm_primary__ = ('lang', 'var_group', 'var_name')
+class ConfigL10N(ModelWithTID):
+    __storm_primary__ = ('tid', 'lang', 'var_group', 'var_name')
 
     lang = Unicode()
     var_group = Unicode()
@@ -56,17 +43,20 @@ class ConfigL10N(Storm):
     value = Unicode()
     customized = Bool(default=False)
 
-    def __init__(self, lang_code=None, group=None, var_name=None, value='', migrate=False):
+    def __init__(self, tid=None, lang=None, var_group=None, var_name=None, value='', migrate=False):
         if migrate:
             return
-        self.lang = unicode(lang_code)
-        self.var_group = unicode(group)
+
+        self.tid = tid
+        self.lang = unicode(lang)
+        self.var_group = unicode(var_group)
         self.var_name = unicode(var_name)
         self.value = unicode(value)
 
     def __repr__(self):
-      return "<ConfigL10N %s::%s.%s::'%s'>" % (self.lang, self.var_group,
-                                               self.var_name, self.value[:5])
+      return "<ConfigL10N %d %s::%s.%s::'%s'>" % (self.tid,
+                                                  self.lang, self.var_group,
+                                                  self.var_name, self.value[:5])
 
     def set_v(self, value):
         value = unicode(value)
@@ -83,71 +73,61 @@ class ConfigL10NFactory(object):
     localized_keys = frozenset()
     unmodifiable_keys = frozenset()
 
-    def __init__(self, store, group):
+    def __init__(self, store, tid, var_group):
+        self.model_class = ConfigL10N
         self.store = store
-        self.group = unicode(group)
+        self.tid = tid
+        self.var_group = unicode(var_group)
 
         #TODO use lazy loading to optimize query performance
 
-    def initialize(self, lang_code, l10n_data_src, keys=None):
+    def initialize(self, lang, l10n_data_src, keys=None):
         if keys is None:
             keys = self.localized_keys
 
         for key in keys:
-            value = l10n_data_src[key][lang_code] if key in l10n_data_src else ''
-            entry = ConfigL10N(lang_code, self.group, key, value)
+            value = l10n_data_src[key][lang] if key in l10n_data_src else ''
+            entry = self.model_class(self.tid, lang, self.var_group, key, value)
             self.store.add(entry)
 
-    def retrieve_rows(self, lang_code):
-        selector = And(ConfigL10N.var_group == self.group, ConfigL10N.lang == unicode(lang_code))
-        return [r for r in self.store.find(ConfigL10N, selector)]
+    def localized_dict(self, lang):
+        rows = self.store.find(self.model_class, lang = unicode(lang), var_group = self.var_group)
+        return {c.var_name : c.value for c in rows if c.var_name in self.localized_keys}
 
-    def localized_dict(self, lang_code):
-        rows = self.retrieve_rows(lang_code)
-        loc_dict = {c.var_name : c.value for c in rows if c.var_name in self.localized_keys}
-        return loc_dict
-
-    def update(self, request, lang_code):
-        c_map = {c.var_name : c for c in self.retrieve_rows(lang_code)}
+    def update(self, request, lang):
+        rows = self.store.find(self.model_class, lang = unicode(lang), var_group = self.var_group)
+        c_map = {c.var_name : c for c in rows}
 
         for key in self.localized_keys - self.unmodifiable_keys:
-            c = c_map[key]
-            new_val = unicode(request[key])
-            c.set_v(new_val)
+            c_map[key].set_v(unicode(request[key]))
 
     def update_defaults(self, langs, l10n_data_src, reset=False):
-        for lang_code in langs:
+        for lang in langs:
             old_keys = []
 
-            for cfg in self.get_all(lang_code):
+            for cfg in self.get_all(lang):
                 old_keys.append(cfg.var_name)
                 if cfg.var_name in self.localized_keys:
                     if (not cfg.customized or reset or cfg.var_name in self.unmodifiable_keys) and cfg.var_name in l10n_data_src:
-                        cfg.value = l10n_data_src[cfg.var_name][lang_code]
+                        cfg.value = l10n_data_src[cfg.var_name][lang]
                 else:
                     self.store.remove(cfg)
 
-            ConfigL10NFactory.initialize(self, lang_code, l10n_data_src,  list(set(self.localized_keys) - set(old_keys)))
+            ConfigL10NFactory.initialize(self, lang, l10n_data_src,  list(set(self.localized_keys) - set(old_keys)))
 
-    def get_all(self, lang_code):
-        return self.store.find(ConfigL10N, And(ConfigL10N.var_group == self.group,
-                                               ConfigL10N.lang == unicode(lang_code)))
+    def get_all(self, lang):
+        return self.store.find(self.model_class, lang=lang, var_group=self.var_group)
 
-    def _where_is(self, lang_code, var_name):
-        return And(ConfigL10N.lang == unicode(lang_code),
-                   ConfigL10N.var_group == self.group,
-                   ConfigL10N.var_name == unicode(var_name))
-
-    def get_val(self, var_name, lang_code):
-        cfg = self.store.find(ConfigL10N, self._where_is(lang_code, var_name)).one()
+    def get_val(self, var_name, lang):
+        cfg = self.store.find(ConfigL10N, lang=unicode(lang), var_group=unicode(self.var_group), var_name=unicode(var_name)).one()
         if cfg is None:
-            raise errors.ModelNotFound('ConfigL10N:%s.%s' % (self.group, var_name))
+            raise KeyError('ConfigL10N:<%s.%s> not found' % (self.var_group, var_name))
 
         return cfg.value
 
-    def set_val(self, var_name, lang_code, value):
-        cfg = self.store.find(ConfigL10N, self._where_is(lang_code, var_name)).one()
-        cfg.set_v(value)
+    def set_val(self, var_name, lang, value):
+        cfg = self.store.find(self.model_class, tid=self.tid, var_group=unicode(self.var_group), lang=unicode(lang), var_name=unicode(var_name)).one()
+        cfg.set_v(unicode(value))
 
 
 class NodeL10NFactory(ConfigL10NFactory):
@@ -172,12 +152,12 @@ class NodeL10NFactory(ConfigL10NFactory):
         'widget_files_title',
     })
 
-    def __init__(self, store, *args, **kwargs):
-        ConfigL10NFactory.__init__(self, store, 'node', *args, **kwargs)
+    def __init__(self, store, tid):
+        ConfigL10NFactory.__init__(self, store, tid, 'node')
 
-    def initialize(self, lang_code, appdata_dict):
+    def initialize(self, lang, appdata_dict):
         l10n_data_src = appdata_dict['node']
-        ConfigL10NFactory.initialize(self, lang_code, l10n_data_src)
+        ConfigL10NFactory.initialize(self, lang, l10n_data_src)
 
 
 class NotificationL10NFactory(ConfigL10NFactory):
@@ -247,19 +227,19 @@ class NotificationL10NFactory(ConfigL10NFactory):
     # These strings are modifiable via the admin/notification handler
     modifiable_keys = localized_keys - unmodifiable_keys
 
-    def __init__(self, store, *args, **kwargs):
-        ConfigL10NFactory.__init__(self, store, 'notification', *args, **kwargs)
+    def __init__(self, store, tid):
+        ConfigL10NFactory.__init__(self, store, tid, 'notification')
 
-    def initialize(self, lang_code, appdata_dict):
+    def initialize(self, lang, appdata_dict):
         l10n_data_src = appdata_dict['templates']
-        ConfigL10NFactory.initialize(self, lang_code, l10n_data_src)
+        ConfigL10NFactory.initialize(self, lang, l10n_data_src)
 
     def reset_templates(self, l10n_data_src):
-        langs = EnabledLanguage.list(self.store)
+        langs = EnabledLanguage.list(self.store, self.tid)
         self.update_defaults(langs, l10n_data_src, reset=True)
 
 
-def update_defaults(store, appdata):
-    langs = EnabledLanguage.list(store)
-    NodeL10NFactory(store).update_defaults(langs, appdata['node'])
-    NotificationL10NFactory(store).update_defaults(langs, appdata['templates'])
+def update_defaults(store, tid, appdata):
+    langs = EnabledLanguage.list(store, tid)
+    NodeL10NFactory(store, tid).update_defaults(langs, appdata['node'])
+    NotificationL10NFactory(store, tid).update_defaults(langs, appdata['templates'])

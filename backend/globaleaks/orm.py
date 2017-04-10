@@ -113,3 +113,8 @@ class transact(object):
 class transact_sync(transact):
     def run(self, function, *args, **kwargs):
         return function(*args, **kwargs)
+
+
+@transact
+def wrap_db_tx(store, f, *args, **kwargs):
+    return f(store, *args, **kwargs)
