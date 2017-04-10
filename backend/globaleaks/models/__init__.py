@@ -10,24 +10,12 @@ from storm.locals import Bool, Int, Reference, ReferenceSet, Unicode, Storm, JSO
 from globaleaks.models.validators import shorttext_v, longtext_v, \
     shortlocal_v, longlocal_v, shorturl_v, longurl_v, natnum_v, range_v
 from globaleaks.orm import transact
+from globaleaks.rest import errors
 from globaleaks.settings import GLSettings
 from globaleaks.utils.utility import datetime_now, datetime_null, uuid4
 from .properties import MetaModel, DateTime
 
 empty_localization = {}
-
-
-def db_forge_obj(store, mock_class, mock_fields):
-    obj = mock_class()
-    for key, val in mock_fields.iteritems():
-        setattr(obj, key, val)
-    store.add(obj)
-    return obj
-
-
-@transact
-def forge_obj(store, mock_class, mock_fields):
-    return db_forge_obj(store, mock_class, mock_fields)
 
 
 class Model(Storm):
@@ -49,6 +37,9 @@ class Model(Storm):
     json_keys = []
 
     def __init__(self, values=None, migrate=False):
+        if migrate:
+            return
+
         self.update(values)
 
     def update(self, values=None):
@@ -59,46 +50,60 @@ class Model(Storm):
         if values is None:
             return
 
-        for k in getattr(self, 'unicode_keys'):
-            if k in values and values[k] is not None:
-                value = unicode(values[k])
-                setattr(self, k, value)
+        keys = getattr(self, 'unicode_keys') + \
+               getattr(self, 'int_keys') + \
+               getattr(self, 'datetime_keys') + \
+               getattr(self, 'bool_keys') + \
+               getattr(self, 'localized_keys') + \
+               getattr(self, 'json_keys')
 
-        for k in getattr(self, 'int_keys'):
-            if k in values and values[k] is not None:
-                value = int(values[k])
-                setattr(self, k, value)
-
-        for k in getattr(self, 'datetime_keys'):
-            if k in values and values[k] is not None:
+        for k in keys:
+            if k in values and values[k] != '':
                 value = values[k]
+                if k in getattr(self, 'unicode_keys'):
+                    value = unicode(value)
+                elif k in getattr(self, 'int_keys'):
+                    value = int(value)
+                elif k in getattr(self, 'bool_keys'):
+                    if values == u'true':
+                        value = True
+                    elif value == u'false':
+                        value = False
+                    value = bool(value)
+                elif k in getattr(self, 'localized_keys'):
+                    previous = getattr(self, k, {})
+                    if previous is not None:
+                        previous.update(value)
+                        value = previous
+
                 setattr(self, k, value)
 
-        for k in getattr(self, 'bool_keys'):
-            if k in values and values[k] is not None:
-                if values[k] == u'true':
-                    value = True
-                elif values[k] == u'false':
-                    value = False
-                else:
-                    value = bool(values[k])
-                setattr(self, k, value)
+    @classmethod
+    def db_get(cls, store, *args, **kwargs):
+        ret = store.find(cls, *args, **kwargs).one()
+        if ret is None:
+            raise errors.ModelNotFound(cls)
 
-        for k in getattr(self, 'localized_keys'):
-            if k in values and values[k] is not None:
-                value = values[k]
-                previous = getattr(self, k)
+        return ret
 
-                if previous and isinstance(previous, dict):
-                    previous.update(value)
-                    setattr(self, k, previous)
-                else:
-                    setattr(self, k, value)
+    @classmethod
+    @transact
+    def test(store, cls, *args, **kwargs):
+        try:
+            cls.db_get(store, *args, **kwargs)
+        except:
+            return False
 
-        for k in getattr(self, 'json_keys'):
-            if k in values and values[k] is not None:
-                value = values[k]
-                setattr(self, k, value)
+        return True
+
+    @classmethod
+    def db_delete(cls, store, *args, **kwargs):
+        store.find(cls, *args, **kwargs).remove()
+
+    @classmethod
+    @transact
+    def delete(store, cls, **kwargs):
+        cls.db_delete(store, **kwargs)
 
     def __str__(self):
         # pylint: disable=no-member
@@ -132,14 +137,40 @@ class Model(Storm):
 
 class ModelWithID(Model):
     """
-    Base class for working the database, already integrating an id.
+    Base class for models requiring an ID
     """
     __storm_table__ = None
+
     id = Unicode(primary=True, default_factory=uuid4)
 
-    @classmethod
-    def get(cls, store, obj_id):
-        return store.find(cls, cls.id == obj_id).one()
+
+class ModelWithTID(Model):
+    """
+    Base class for models requiring a TID
+    """
+    __storm_table__ = None
+
+    tid = Int(primary=True, default=1)
+
+
+class ModelWithIDandTID(ModelWithID):
+    """
+    Base class for models requiring a TID and an ID
+    """
+    __storm_table__ = None
+
+    id = Unicode(primary=True, default_factory=uuid4)
+    tid = Int(default=1)
+
+
+class Tenant(Model):
+    """
+    Class used to implement tenants
+    """
+    id = Int(primary=True)
+    label = Unicode(validator=shorttext_v)
+
+    unicode_keys = ['label']
 
 
 class User(ModelWithID):
@@ -175,18 +206,25 @@ class User(ModelWithID):
     pgp_key_expiration = DateTime(default_factory=datetime_null)
     # END of PGP key fields
 
-    img_id = Unicode()
-
     unicode_keys = ['username', 'role', 'state',
                     'language', 'mail_address', 'name',
-                    'public_name']
+                    'public_name', 'pgp_key_fingerprint',
+                    'pgp_key_public']
 
     localized_keys = ['description']
 
     bool_keys = ['deletable', 'password_change_needed']
 
+    datetime_keys = ['pgp_key_expiration']
 
-class Context(ModelWithID):
+
+class UserImg(ModelWithID):
+    data = Unicode()
+
+    unicode_keys=['id', 'data']
+
+
+class Context(ModelWithIDandTID):
     """
     This model keeps track of contexts settings.
     """
@@ -219,8 +257,6 @@ class Context(ModelWithID):
 
     questionnaire_id = Unicode()
 
-    img_id = Unicode()
-
     unicode_keys = ['questionnaire_id']
 
     localized_keys = ['name', 'description', 'recipients_clarification', 'status_page_message']
@@ -246,6 +282,13 @@ class Context(ModelWithID):
       'enable_attachments',
       'enable_rc_to_wb_files'
     ]
+
+
+class ContextImg(ModelWithID):
+    data = Unicode()
+
+    unicode_keys=['id', 'data']
+
 
 class InternalTip(ModelWithID):
     """
@@ -287,6 +330,7 @@ class InternalTip(ModelWithID):
     def is_wb_access_revoked(self):
         return self.whistleblowertip is None
 
+
 class ReceiverTip(ModelWithID):
     """
     This is the table keeping track of ALL the receivers activities and
@@ -320,7 +364,7 @@ class WhistleblowerTip(ModelWithID):
     receipt_hash = Unicode()
 
 
-class IdentityAccessRequest(ModelWithID):
+class IdentityAccessRequest(ModelWithIDandTID):
     """
     This model keeps track of identity access requests by receivers and
     of the answers by custodians.
@@ -495,16 +539,16 @@ class Field(ModelWithID):
 
     triggered_by_score = Int(default=0)
 
-    fieldgroup_id = Unicode()
+    question_id = Unicode()
     step_id = Unicode()
+    fieldgroup_id = Unicode()
     template_id = Unicode()
 
     type = Unicode(default=u'inputbox')
 
-    instance = Unicode(default=u'instance')
     editable = Bool(default=True)
 
-    unicode_keys = ['type', 'instance', 'key']
+    unicode_keys = ['type', 'key', 'question_id', 'step_id', 'fieldgroup_id', 'template_id']
     int_keys = ['x', 'y', 'width', 'triggered_by_score']
     localized_keys = ['label', 'description', 'hint', 'multi_entry_hint']
     bool_keys = ['editable', 'multi_entry', 'preview', 'required', 'stats_enabled']
@@ -516,22 +560,13 @@ class FieldAttr(ModelWithID):
     type = Unicode()
     value = JSON()
 
-    # FieldAttr is a special model.
-    # Here we consider all its attributes as unicode, then
-    # depending on the type we handle the value as a localized value
-    unicode_keys = ['field_id', 'name', 'type', 'value']
+    unicode_keys = ['field_id', 'name', 'type', 'triggered_step', 'trigger_field']
 
     def update(self, values=None):
-        """
-        Updated ModelWithIDs attributes from dict.
-        """
-        # May raise ValueError and AttributeError
+        Model.update(self, values)
+
         if values is None:
             return
-
-        setattr(self, 'field_id', unicode(values['field_id']))
-        setattr(self, 'name', unicode(values['name']))
-        setattr(self, 'type', unicode(values['type']))
 
         if self.type == 'localized':
             value = values['value']
@@ -608,6 +643,10 @@ class Questionnaire(ModelWithID):
     ]
 
 
+class Question(ModelWithID):
+    pass
+
+
 class ArchivedSchema(Model):
     __storm_primary__ = 'hash', 'type'
 
@@ -634,73 +673,93 @@ class SecureFileDelete(ModelWithID):
     filepath = Unicode()
 
 
-class ApplicationData(ModelWithID):
-    version = Int()
-    default_questionnaire = JSON()
-
-    int_keys = ['version']
-    json_keys = ['default_questionnaire']
-
-
-# Follow classes used for Many to Many references
-class ReceiverContext(Model):
-    """
-    Class used to implement references between Receivers and Contexts
-    """
-    __storm_table__ = 'receiver_context'
-    __storm_primary__ = 'context_id', 'receiver_id'
-
-    context_id = Unicode()
-    receiver_id = Unicode()
-
-
-class Counter(Model):
+class Counter(ModelWithTID):
     """
     Class used to implement unique counters
     """
-    key = Unicode(primary=True, validator=shorttext_v)
+    __storm_primary__  = 'tid', 'key'
+
+    key = Unicode(validator=shorttext_v)
     counter = Int(default=1)
     update_date = DateTime(default_factory=datetime_now)
 
     unicode_keys = ['key']
-    int_keys = ['number']
+    int_keys = ['tid', 'number']
 
 
-class ShortURL(ModelWithID):
+class ShortURL(ModelWithIDandTID):
     """
     Class used to implement url shorteners
     """
-    tid = Int()
     shorturl = Unicode(validator=shorturl_v)
     longurl = Unicode(validator=longurl_v)
 
     unicode_keys = ['shorturl', 'longurl']
 
 
-class File(ModelWithID):
-    """
-    Class used for storing files
-    """
-    data = Unicode()
-
-    unicode_keys = ['data']
-
-
-class CustomTexts(Model):
+class CustomTexts(ModelWithTID):
     """
     Class used to implement custom texts
     """
-    tid = Int()
+    __storm_primary__ = 'tid', 'lang'
+
     lang = Unicode(primary=True, validator=shorttext_v)
     texts = JSON()
 
+    int_keys = ['tid']
     unicode_keys = ['lang']
     json_keys = ['texts']
 
 
-Context.picture = Reference(Context.img_id, File.id)
-User.picture = Reference(User.img_id, File.id)
+# Follow classes used for Many to Many references
+class User_Tenant(Model):
+    """
+    Class used to implement references between Users and Tenants
+    """
+    __storm_primary__ = 'user_id', 'tenant_id'
 
+    user_id = Unicode()
+    tenant_id = Int()
+
+
+class Questionnaire_Tenant(Model):
+    """
+    Class used to implement references between Questionnaire and Tenants
+    """
+    __storm_primary__ = 'questionnaire_id', 'tenant_id'
+
+    questionnaire_id = Unicode()
+    tenant_id = Int()
+
+    int_keys = ['tenant_id']
+    unicode_keys = ['questionnaire_id']
+
+
+class Question_Tenant(Model):
+    """
+    Class used to implement references between Questions and Tenants
+    """
+    __storm_primary__ = 'question_id', 'tenant_id'
+
+    question_id = Unicode()
+    tenant_id = Int()
+
+    int_keys = ['tenant_id']
+    unicode_keys = ['question_id']
+
+
+class Receiver_Context(Model):
+    """
+    Class used to implement references between Receivers and Contexts
+    """
+    __storm_primary__ = 'context_id', 'receiver_id'
+
+    context_id = Unicode()
+    receiver_id = Unicode()
+
+
+Context.img = Reference(Context.id, ContextImg.id)
+User.img = Reference(User.id, UserImg.id)
 
 Field.fieldgroup = Reference(Field.fieldgroup_id, Field.id)
 Field.step = Reference(Field.step_id, Step.id)
@@ -828,14 +887,28 @@ IdentityAccessRequest.reply_user = Reference(
 
 Context.receivers = ReferenceSet(
     Context.id,
-    ReceiverContext.context_id,
-    ReceiverContext.receiver_id,
+    Receiver_Context.context_id,
+    Receiver_Context.receiver_id,
     Receiver.id
 )
 
 Receiver.contexts = ReferenceSet(
     Receiver.id,
-    ReceiverContext.receiver_id,
-    ReceiverContext.context_id,
+    Receiver_Context.receiver_id,
+    Receiver_Context.context_id,
     Context.id
+)
+
+User.tenants = ReferenceSet(
+    User.id,
+    User_Tenant.user_id,
+    User_Tenant.tenant_id,
+    Tenant.id
+)
+
+Tenant.users = ReferenceSet(
+    Tenant.id,
+    User_Tenant.tenant_id,
+    User_Tenant.user_id,
+    User.id
 )
