@@ -3,7 +3,7 @@
 from storm.locals import Int, Bool, Unicode, DateTime, JSON, Reference, ReferenceSet
 
 from globaleaks.db.migrations.update import MigrationBase
-from globaleaks.models import Model, ModelWithID, ReceiverContext
+from globaleaks.models import Model, ModelWithID, Receiver_Context
 
 
 class Node_v_20(ModelWithID):
@@ -165,8 +165,8 @@ class Context_v_20(ModelWithID):
 
 Context_v_20.receivers = ReferenceSet(
     Context_v_20.id,
-    ReceiverContext.context_id,
-    ReceiverContext.receiver_id,
+    Receiver_Context.context_id,
+    Receiver_Context.receiver_id,
     Receiver_v_20.id
 )
 
@@ -202,7 +202,7 @@ class FieldOption_v_20(ModelWithID):
     attrs = JSON()
 
 
-class StepField_v_20(Model):
+class Step_Field_v_20(Model):
     __storm_table__ = 'step_field'
     __storm_primary__ = 'step_id', 'field_id'
     step_id = Unicode()
@@ -218,8 +218,8 @@ FieldOption_v_20.field = Reference(FieldOption_v_20.field_id, Field_v_20.id)
 
 Step_v_20.children = ReferenceSet(
     Step_v_20.id,
-    StepField_v_20.step_id,
-    StepField_v_20.field_id,
+    Step_Field_v_20.step_id,
+    Step_Field_v_20.field_id,
     Field_v_20.id
 )
 

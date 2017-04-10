@@ -43,7 +43,7 @@ class FieldOption_v_27(ModelWithID):
     score_points = Int()
 
 
-class FieldField_v_27(Model):
+class Field_Field_v_27(Model):
     __storm_table__ = 'field_field'
     __storm_primary__ = 'parent_id', 'child_id'
 
@@ -51,7 +51,7 @@ class FieldField_v_27(Model):
     child_id = Unicode()
 
 
-class StepField_v_27(Model):
+class Step_Field_v_27(Model):
     __storm_table__ = 'step_field'
     __storm_primary__ = 'step_id', 'field_id'
 
@@ -86,13 +86,13 @@ class MigrationScript(MigrationBase):
                     continue
 
                 if v.name == 'step_id':
-                    sf = self.store_old.find(self.model_from['StepField'], self.model_from['StepField'].field_id == old_obj.id).one()
+                    sf = self.store_old.find(self.model_from['Step_Field'], self.model_from['Step_Field'].field_id == old_obj.id).one()
                     if sf is not None:
                         new_obj.step_id = sf.step_id
                     continue
 
                 if v.name == 'fieldgroup_id':
-                    ff = self.store_old.find(self.model_from['FieldField'], self.model_from['FieldField'].child_id == old_obj.id).one()
+                    ff = self.store_old.find(self.model_from['Field_Field'], self.model_from['Field_Field'].child_id == old_obj.id).one()
                     if ff is not None:
                         new_obj.fieldgroup_id = ff.parent_id
                     continue

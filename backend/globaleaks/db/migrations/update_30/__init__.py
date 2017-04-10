@@ -6,7 +6,7 @@ from globaleaks.db.appdata import load_appdata
 from globaleaks.db.migrations.update import MigrationBase
 from globaleaks.handlers.admin.field import db_import_fields
 from globaleaks.handlers.admin.questionnaire import db_get_default_questionnaire_id
-from globaleaks.models import ModelWithID, Model, Questionnaire, Step, db_forge_obj
+from globaleaks.models import ModelWithID, Model
 
 
 class Node_v_29(ModelWithID):
@@ -123,7 +123,7 @@ class FieldAnswerGroup_v_29(ModelWithID):
     fieldanswer_id = Unicode()
 
 
-class FieldAnswerGroupFieldAnswer_v_29(Model):
+class FieldAnswerGroup_FieldAnswer_v_29(Model):
     __storm_table__ = 'fieldanswergroup_fieldanswer'
     __storm_primary__ = 'fieldanswergroup_id', 'fieldanswer_id'
 
@@ -133,8 +133,8 @@ class FieldAnswerGroupFieldAnswer_v_29(Model):
 
 FieldAnswerGroup_v_29.fieldanswers = ReferenceSet(
     FieldAnswerGroup_v_29.id,
-    FieldAnswerGroupFieldAnswer_v_29.fieldanswergroup_id,
-    FieldAnswerGroupFieldAnswer_v_29.fieldanswer_id,
+    FieldAnswerGroup_FieldAnswer_v_29.fieldanswergroup_id,
+    FieldAnswerGroup_FieldAnswer_v_29.fieldanswer_id,
     FieldAnswer_v_29.id
 )
 
@@ -144,16 +144,16 @@ class MigrationScript(MigrationBase):
         appdata = load_appdata()
 
         steps = appdata['default_questionnaire']['steps']
-        del appdata['default_questionnaire']['steps']
 
-        questionnaire = db_forge_obj(self.store_new, Questionnaire, appdata['default_questionnaire'])
+        questionnaire = self.model_to['Questionnaire'](appdata['default_questionnaire'])
+        self.store_new.add(questionnaire)
 
         for step in steps:
             f_children = step['children']
-            del step['children']
-            s = db_forge_obj(self.store_new, Step, step)
+            step['questionnaire_id'] = questionnaire.id
+            s = self.model_to['Step'](step)
+            self.store_new.add(s)
             db_import_fields(self.store_new, s, None, f_children)
-            s.questionnaire_id = questionnaire.id
 
         self.store_new.commit()
 
@@ -176,8 +176,8 @@ class MigrationScript(MigrationBase):
             new_obj = self.model_to['FieldAnswer']()
             for _, v in new_obj._storm_columns.iteritems():
                 if v.name == 'fieldanswergroup_id':
-                    old_ref = self.store_old.find(FieldAnswerGroupFieldAnswer_v_29,
-                                                  FieldAnswerGroupFieldAnswer_v_29.fieldanswer_id == old_obj.id).one()
+                    old_ref = self.store_old.find(FieldAnswerGroup_FieldAnswer_v_29,
+                                                  FieldAnswerGroup_FieldAnswer_v_29.fieldanswer_id == old_obj.id).one()
                     if old_ref is not None:
                         new_obj.fieldanswergroup_id = old_ref.fieldanswergroup_id
                     continue
