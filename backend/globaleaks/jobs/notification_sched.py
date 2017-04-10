@@ -6,6 +6,7 @@ import copy
 from twisted.internet import reactor, threads
 
 from globaleaks import models
+from globaleaks.constants import ROOT_TENANT
 from globaleaks.handlers.admin.context import admin_serialize_context
 from globaleaks.handlers.admin.node import db_admin_serialize_node
 from globaleaks.handlers.admin.notification import db_get_notification
@@ -45,9 +46,9 @@ class MailGenerator(object):
 
         if cache_key not in self.cache:
             if key == 'node':
-                cache_obj = db_admin_serialize_node(store, language)
+                cache_obj = db_admin_serialize_node(store, ROOT_TENANT, language)
             elif key == 'notification':
-                cache_obj = db_get_notification(store, language)
+                cache_obj = db_get_notification(store, ROOT_TENANT, language)
 
             self.cache[cache_key] = cache_obj
 
