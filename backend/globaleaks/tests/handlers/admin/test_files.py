@@ -2,7 +2,7 @@
 
 from twisted.internet.defer import inlineCallbacks
 
-from globaleaks.constants import FIRST_TENANT
+from globaleaks.state import app_state
 from globaleaks.handlers.admin import files
 from globaleaks.tests import helpers
 

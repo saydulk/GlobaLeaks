@@ -2,7 +2,7 @@
 from twisted.internet.defer import inlineCallbacks
 
 from globaleaks import models
-from globaleaks.constants import FIRST_TENANT
+from globaleaks.state import app_state
 from globaleaks.handlers import receiver, admin
 from globaleaks.orm import transact
 from globaleaks.tests import helpers
@@ -21,7 +21,7 @@ class TestUserInstance(helpers.TestHandlerWithPopulatedDB):
     def setUp(self):
         yield helpers.TestHandlerWithPopulatedDB.setUp(self)
 
-        self.rcvr_id = (yield admin.receiver.get_receiver_list(FIRST_TENANT, 'en'))[0]['id']
+        self.rcvr_id = (yield admin.receiver.get_receiver_list(app_state.root_id, 'en'))[0]['id']
 
     @inlineCallbacks
     def test_disable_tip_notification(self):

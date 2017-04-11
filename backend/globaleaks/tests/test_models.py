@@ -3,7 +3,7 @@
 from twisted.internet.defer import inlineCallbacks
 
 from globaleaks import models, LANGUAGES_SUPPORTED
-from globaleaks.constants import FIRST_TENANT
+from globaleaks.state import app_state
 from globaleaks.db.appdata import load_appdata
 from globaleaks.handlers.admin.questionnaire import db_get_default_questionnaire_id
 from globaleaks.models import config
@@ -16,7 +16,7 @@ from globaleaks.tests import helpers
 class TestSystemConfigModels(helpers.TestGL):
     @transact
     def _test_config_import(self, store):
-        c = store.find(config.Config, tid=FIRST_TENANT).count()
+        c = store.find(config.Config, tid=app_state.root_id).count()
 
         stated_conf = reduce(lambda x,y: x+y, [len(v) for k, v in GLConfig.iteritems()], 0)
         self.assertEqual(c, stated_conf)
@@ -27,7 +27,7 @@ class TestSystemConfigModels(helpers.TestGL):
 
     @transact
     def _test_valid_cfg(self, store):
-        self.assertEqual(True, config.is_cfg_valid(store, FIRST_TENANT))
+        self.assertEqual(True, config.is_cfg_valid(store, app_state.root_id))
 
     @inlineCallbacks
     def test_valid_config(self):
@@ -35,15 +35,15 @@ class TestSystemConfigModels(helpers.TestGL):
 
     @transact
     def _test_missing_config(self, store):
-        self.assertEqual(True, config.is_cfg_valid(store, FIRST_TENANT))
+        self.assertEqual(True, config.is_cfg_valid(store, app_state.root_id))
 
-        p = config.Config(FIRST_TENANT, 'private', 'smtp_password', 'XXXX')
+        p = config.Config(app_state.root_id, 'private', 'smtp_password', 'XXXX')
         p.var_group = u'outside'
         store.add(p)
 
-        self.assertEqual(False, config.is_cfg_valid(store, FIRST_TENANT))
+        self.assertEqual(False, config.is_cfg_valid(store, app_state.root_id))
 
-        node = config.NodeFactory(store, FIRST_TENANT)
+        node = config.NodeFactory(store, app_state.root_id)
         c = node.get_cfg('hostname')
         store.remove(c)
         store.commit()
@@ -51,23 +51,23 @@ class TestSystemConfigModels(helpers.TestGL):
         self.assertEqual(False, node.db_corresponds())
 
         # Delete all of the vars in Private Factory
-        prv = config.PrivateFactory(store, FIRST_TENANT)
+        prv = config.PrivateFactory(store, app_state.root_id)
 
         store.execute('DELETE FROM config WHERE var_group = "private"')
 
         self.assertEqual(False, prv.db_corresponds())
 
-        ntfn = config.NotificationFactory(store, FIRST_TENANT)
+        ntfn = config.NotificationFactory(store, app_state.root_id)
 
-        c = config.Config(FIRST_TENANT, 'notification', 'server', 'guarda.giochi.con.occhi')
+        c = config.Config(app_state.root_id, 'notification', 'server', 'guarda.giochi.con.occhi')
         c.var_name = u'anextravar'
         store.add(c)
 
         self.assertEqual(False, ntfn.db_corresponds())
 
-        config.update_defaults(store, FIRST_TENANT)
+        config.update_defaults(store, app_state.root_id)
 
-        self.assertEqual(True, config.is_cfg_valid(store, FIRST_TENANT))
+        self.assertEqual(True, config.is_cfg_valid(store, app_state.root_id))
 
     @inlineCallbacks
     def test_missing_config(self):
@@ -85,25 +85,25 @@ class TestConfigL10N(helpers.TestGL):
 
         key_num = len(NodeL10NFactory.localized_keys) + len(NotificationL10NFactory.localized_keys)
 
-        res = EnabledLanguage.list(store, FIRST_TENANT)
+        res = EnabledLanguage.list(store, app_state.root_id)
         self.assertTrue(len(res) == 1)
         self.assertTrue([u'en'] == res)
-        self.assertTrue(store.find(ConfigL10N, tid=FIRST_TENANT).count() == key_num)
+        self.assertTrue(store.find(ConfigL10N, tid=app_state.root_id).count() == key_num)
 
-        EnabledLanguage.enable_language(store, FIRST_TENANT, u'ar', appdata)
+        EnabledLanguage.enable_language(store, app_state.root_id, u'ar', appdata)
 
-        res = EnabledLanguage.list(store, FIRST_TENANT)
+        res = EnabledLanguage.list(store, app_state.root_id)
         self.assertTrue(len(res) == 2)
         self.assertTrue([u'ar', 'en'] == res)
-        self.assertTrue(store.find(ConfigL10N, tid=FIRST_TENANT).count() == key_num * 2)
+        self.assertTrue(store.find(ConfigL10N, tid=app_state.root_id).count() == key_num * 2)
 
     @transact
     def disable_langs(self, store):
-        EnabledLanguage.disable_language(store, FIRST_TENANT, u'en')
+        EnabledLanguage.disable_language(store, app_state.root_id, u'en')
 
-        res = EnabledLanguage.list(store, FIRST_TENANT)
+        res = EnabledLanguage.list(store, app_state.root_id)
         self.assertTrue(len(res) == 0)
-        self.assertTrue(store.find(ConfigL10N, tid=FIRST_TENANT).count() == 0)
+        self.assertTrue(store.find(ConfigL10N, tid=app_state.root_id).count() == 0)
 
     @inlineCallbacks
     def test_enabled_langs(self):
@@ -121,7 +121,7 @@ class TestModels(helpers.TestGL):
     def context_add(self, store):
         c = self.localization_set(self.dummyContext, models.Context, 'en')
         context = models.Context(c)
-        context.tid = FIRST_TENANT
+        context.tid = app_state.root_id
         context.questionnaire_id = db_get_default_questionnaire_id(store)
         context.tip_timetolive = 1000
         context.description = context.name = \
@@ -173,7 +173,7 @@ class TestModels(helpers.TestGL):
 
         c = self.localization_set(self.dummyContext, models.Context, 'en')
         context = models.Context(c)
-        context.tid = FIRST_TENANT
+        context.tid = app_state.root_id
         context.questionnaire_id = db_get_default_questionnaire_id(store)
         context.tip_timetolive = 1000
         context.description = context.name = \

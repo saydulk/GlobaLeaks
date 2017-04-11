@@ -1,7 +1,7 @@
 from twisted.internet.defer import inlineCallbacks
 
 from globaleaks.db.appdata import load_appdata
-from globaleaks.constants import FIRST_TENANT
+from globaleaks.state import app_state
 from globaleaks.handlers.admin import tenant
 from globaleaks.handlers.admin.tenant import db_create_tenant
 from globaleaks.state import State
@@ -36,7 +36,7 @@ class TestStateChanges(helpers.TestGL):
         new_ten = db_create_tenant(store, {'label': 'tn2.localhost:8082'}, load_appdata())
 
         # Modify root_tenant config
-        NodeFactory(store, FIRST_TENANT).set_val('disable_submissions', True)
+        NodeFactory(store, app_state.root_id).set_val('disable_submissions', True)
 
         store.flush()
         app_state.db_refresh(store)

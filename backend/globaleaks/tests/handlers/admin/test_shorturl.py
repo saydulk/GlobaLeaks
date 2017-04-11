@@ -2,7 +2,7 @@
 
 from twisted.internet.defer import inlineCallbacks
 
-from globaleaks.constants import FIRST_TENANT
+from globaleaks.state import app_state
 from globaleaks.handlers.admin import shorturl
 from globaleaks.tests import helpers
 
@@ -13,7 +13,7 @@ class TestShortURLCollection(helpers.TestHandlerWithPopulatedDB):
     @inlineCallbacks
     def test_get(self):
         for i in range(3):
-            yield shorturl.create_shorturl(FIRST_TENANT, self.get_dummy_shorturl(str(i)))
+            yield shorturl.create_shorturl(app_state.root_id, self.get_dummy_shorturl(str(i)))
 
         handler = self.request(role='admin')
         yield handler.get()
@@ -33,7 +33,7 @@ class TestShortURLInstance(helpers.TestHandlerWithPopulatedDB):
     @inlineCallbacks
     def test_delete(self):
         shorturl_desc = self.get_dummy_shorturl()
-        shorturl_desc = yield shorturl.create_shorturl(FIRST_TENANT, shorturl_desc)
+        shorturl_desc = yield shorturl.create_shorturl(app_state.root_id, shorturl_desc)
 
         handler = self.request(role='admin')
         yield handler.delete(shorturl_desc['id'])

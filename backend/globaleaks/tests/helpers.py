@@ -223,9 +223,6 @@ class TestGL(unittest.TestCase):
 
         allow_unencrypted = self.encryption_scenario in ['PLAINTEXT', 'MIXED']
 
-        first_tenant = {'label': 'localhost:8082'}
-        yield create_tenant(first_tenant, load_appdata())
-
         # TODO Create a new app_state for every request instead of 
         # modifying this existing one.
         yield app_state.refresh()
@@ -742,7 +739,7 @@ class TestHandler(TestGLWithPopulatedDB):
         if headers is None:
             headers = {}
 
-        headers['Host'] = 'localhost:8082'
+        headers['Host'] = '127.0.0.1:8082'
 
         request = httpserver.HTTPRequest(uri='mock',
                                          method=method,
