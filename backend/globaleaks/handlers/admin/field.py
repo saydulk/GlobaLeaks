@@ -52,15 +52,12 @@ def db_update_fieldoption(store, fieldoption_id, option, language):
     o = None
     if fieldoption_id is not None:
         o = store.find(models.FieldOption, models.FieldOption.id == fieldoption_id).one()
-        o = None
 
     if o is None:
         o = models.FieldOption(option)
         store.add(o)
     else:
         o.update(option)
-
-    o.update(option)
 
     return o.id
 
