@@ -542,9 +542,6 @@ class TestGLWithPopulatedDB(TestGL):
         self.dummyReceiver_1 = yield create_receiver(root_ten, copy.deepcopy(self.dummyReceiver_1), 'en')
         self.dummyReceiverUser_1['id'] = self.dummyReceiver_1['id']
         self.dummyReceiver_2 = yield create_receiver(root_ten, copy.deepcopy(self.dummyReceiver_2), 'en')
-        self.dummyReceiver_1 = yield create_receiver(root_ten, copy.deepcopy(self.dummyReceiver_1), 'en')
-        self.dummyReceiverUser_1['id'] = self.dummyReceiver_1['id']
-        self.dummyReceiver_2 = yield create_receiver(root_ten, copy.deepcopy(self.dummyReceiver_2), 'en')
         self.dummyReceiverUser_2['id'] = self.dummyReceiver_2['id']
         receivers_ids = [self.dummyReceiver_1['id'], self.dummyReceiver_2['id']]
 
