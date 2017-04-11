@@ -4,7 +4,7 @@ from storm.expr import And, In
 from storm.locals import Unicode, Storm, Bool
 
 from globaleaks import LANGUAGES_SUPPORTED_CODES
-from globaleaks.models import ModelWithTID
+from globaleaks.models.models import ModelWithTID
 
 
 class EnabledLanguage(ModelWithTID):
