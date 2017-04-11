@@ -19,6 +19,7 @@ from globaleaks.jobs import jobs_list
 from globaleaks.jobs.base import GLJobsMonitor
 from globaleaks.rest import api
 from globaleaks.settings import GLSettings
+from globaleaks.onion_services import configure_tor_hs
 from globaleaks.utils.utility import log, GLLogObserver
 from globaleaks.utils.sock import listen_tcp_on_sock, reserve_port_for_ip
 from globaleaks.workers.supervisor import ProcessSupervisor
@@ -90,6 +91,8 @@ class GLService(service.Service):
         reactor.addSystemEventTrigger('after', 'shutdown', GLSettings.orm_tp.stop)
         api_factory = api.get_api_factory(app_state)
 
+        yield configure_tor_hs(app_state.root_id, GLSettings.bind_port)
+
         for sock in GLSettings.http_socks:
             listen_tcp_on_sock(reactor, sock.fileno(), api_factory)
 
@@ -147,5 +150,5 @@ try:
 
 except Exception as excep:
     fail_startup(excep)
-    # Exit with non-zero exit code to signal systemd/system5
+    # Exit with non-zero exit code to signal systemd/systemV
     sys.exit(55)

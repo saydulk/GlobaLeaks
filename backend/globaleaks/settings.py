@@ -221,7 +221,6 @@ class GLSettingsClass(object):
         self.tmp_upload_path = os.path.abspath(os.path.join(self.files_path, 'tmp'))
         self.static_path = os.path.abspath(os.path.join(self.files_path, 'static'))
         self.static_db_source = os.path.abspath(os.path.join(self.root_path, 'globaleaks', 'db'))
-        self.torhs_path = os.path.abspath(os.path.join(self.working_path, 'torhs'))
         self.ssl_file_path = os.path.abspath(os.path.join(self.files_path, 'ssl'))
 
         self.db_schema = os.path.join(self.static_db_source, 'sqlite.sql')
@@ -359,13 +358,6 @@ class GLSettingsClass(object):
             self.print_msg("Unable to find a directory where to load the client")
             sys.exit(1)
 
-        if self.torhs_path != '':
-            hostname_tor_file = os.path.join(self.torhs_path, 'hostname')
-
-            if os.access(hostname_tor_file, os.R_OK):
-                with file(hostname_tor_file, 'r') as htf:
-                    self.onionservice = htf.read(22)
-
     def validate_port(self, inquiry_port):
         if inquiry_port >= 65535 or inquiry_port < 0:
             self.print_msg("Invalid port number ( > than 65535 can't work! )")
@@ -401,7 +393,6 @@ class GLSettingsClass(object):
                         self.files_path,
                         self.submission_path,
                         self.tmp_upload_path,
-                        self.torhs_path,
                         self.log_path,
                         self.ramdisk_path,
                         self.static_path]:
@@ -432,10 +423,6 @@ class GLSettingsClass(object):
         if not path:
             path = self.working_path
 
-        # we need to avoid changing permissions to torhs directory and its files
-        if path == os.path.join(self.working_path, 'torhs'):
-            return
-
         try:
             if path != self.working_path:
                 os.chown(path, self.uid, self.gid)
@@ -462,8 +449,7 @@ class GLSettingsClass(object):
     def drop_privileges(self):
         if os.getgid() != self.gid:
             try:
-                self.print_msg("switching group privileges since %d to %d" % (os.getgid(), self.gid))
-                os.setgid(self.gid)
+                self.print_msg("configuring group privileges for %s to %d" % (self.user, self.gid))
                 os.initgroups(self.user, self.gid)
             except OSError as droperr:
                 self.print_msg("unable to drop group privileges: %s" % droperr.strerror)
