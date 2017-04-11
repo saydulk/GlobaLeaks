@@ -457,7 +457,7 @@ class BaseHandler(RequestHandler):
         # Map a hostname to the tenant ID for the request
         host_hdr = self.request.headers.get('Host')
         # TODO(tid_me) study of tor redirect and https redirect below
-        tid = self.app_state.tenant_label_id_map.get(host_hdr, None)
+        tid = self.app_state.tenant_hostname_id_map.get(host_hdr, None)
         if tid is None:
             raise errors.TenantIDNotFound()
 

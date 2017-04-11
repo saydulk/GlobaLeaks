@@ -1,5 +1,6 @@
 from cyclone.util import ObjectDict
 
+from globaleaks.constants import ROOT_TENANT
 from globaleaks.utils.tor_exit_set import TorExitSet
 from globaleaks import LANGUAGES_SUPPORTED_CODES
 from globaleaks import models
@@ -34,21 +35,29 @@ class State(object):
         })
 
         self.tenant_states = dict()
+        self.tenant_hostname_id_map = dict()
+        self.root_id = None
 
 
     def db_refresh(self, store):
-        # TODO Determine first tenant NOTE use ringobingo
-        self.root_id = store.find(models.Tenant, id=1).order_by(models.Tenant.id).one().id
+        self.root_id = store.find(models.Tenant, id=ROOT_TENANT).order_by(models.Tenant.id).one().id
 
-        # Initialize tenant state or refresh existing tenant
+        # Initialize or refresh tenant_states and the tenant_hostname_map
         db_tenants = list(store.find(models.Tenant))
-        self.tenant_label_id_map = {t.label: t.id for t in db_tenants}
+
+        self.tenant_hostname_id_map = dict()
 
         for db_tenant in db_tenants:
             t_state = self.tenant_states.get(db_tenant.id)
             if t_state is None:
                 t_state = TenantState(db_tenant.id)
                 self.tenant_states[db_tenant.id] = t_state
+
+            hn, on = db_tenant.https_hostname, db_tenant.onion_hostname
+            if hn != '':
+                self.tenant_hostname_id_map[hn] = db_tenant.id
+            if on != '':
+                self.tenant_hostname_id_map[on] = db_tenant.id
 
             t_state.db_refresh(store)
 
