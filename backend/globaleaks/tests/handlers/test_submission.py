@@ -5,6 +5,7 @@ from globaleaks.handlers import authentication, wbtip
 from globaleaks.handlers.submission import SubmissionInstance
 from globaleaks.jobs import delivery_sched
 from globaleaks.rest import errors
+from globaleaks.state import app_state
 from globaleaks.tests import helpers
 from globaleaks.utils.token import Token
 
@@ -85,9 +86,7 @@ class TestSubmissionEncryptedScenario(helpers.TestHandlerWithPopulatedDB):
         self.submission_desc['answers'] = yield self.fill_random_answers(self.dummyContext['id'])
         self.submission_desc = yield self.create_submission(self.submission_desc)
 
-        tenant_state = TenantState()
-        yield tenant_state.refresh()
-        wbtip_id = yield authentication.login_whistleblower(tenant_state, self.submission_desc['receipt'], False)
+        wbtip_id = yield authentication.login_whistleblower(app_state.get_root_tenant(), self.submission_desc['receipt'], False)
 
         wbtip_desc = yield wbtip.get_wbtip(wbtip_id, 'en')
 
