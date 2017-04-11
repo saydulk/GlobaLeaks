@@ -9,7 +9,6 @@ reload(sys)
 sys.setdefaultencoding('utf8')
 
 from globaleaks import db, models, security, event, jobs
-from globaleaks.constants import FIRST_TENANT
 from globaleaks.anomaly import Alarm
 from globaleaks.db.appdata import load_appdata
 from globaleaks.orm import transact
@@ -227,12 +226,11 @@ class TestGL(unittest.TestCase):
         first_tenant = {'label': 'localhost:8082'}
         yield create_tenant(first_tenant, load_appdata())
 
-        yield update_node_setting(1, 'allow_unencrypted', allow_unencrypted)
-        yield update_node_setting(FIRST_TENANT, 'allow_unencrypted', allow_unencrypted)
-
         # TODO Create a new app_state for every request instead of 
         # modifying this existing one.
         yield app_state.refresh()
+
+        yield update_node_setting(app_state.root_id, 'allow_unencrypted', allow_unencrypted)
 
         sup = ProcessSupervisor([], '127.0.0.1', 18082)
         GLSettings.state.process_supervisor = sup
@@ -332,7 +330,7 @@ class TestGL(unittest.TestCase):
         fill_localized_keys(field, models.Field.localized_keys, 'en')
         field.update(custom_attrs)
 
-        f = db_create_field(store, FIRST_TENANT, field, None)
+        f = db_create_field(store, app_state.root_id, field, None)
 
         store.add(f)
 
@@ -388,7 +386,7 @@ class TestGL(unittest.TestCase):
         """
         defer.returnValue({
             'context_id': context_id,
-            'receivers': (yield get_context(FIRST_TENANT, context_id, 'en'))['receivers'],
+            'receivers': (yield get_context(app_state.root_id, context_id, 'en'))['receivers'],
             'files': [],
             'human_captcha_answer': 0,
             'proof_of_work_answer': 0,
@@ -555,7 +553,7 @@ class TestGLWithPopulatedDB(TestGL):
 
         # fill_data/create_context
         self.dummyContext['receivers'] = receivers_ids
-        self.dummyContext = yield create_context(FIRST_TENANT, copy.deepcopy(self.dummyContext), 'en')
+        self.dummyContext = yield create_context(app_state.root_id, copy.deepcopy(self.dummyContext), 'en')
 
         self.dummyQuestionnaire = yield get_questionnaire(self.dummyContext['questionnaire_id'], 'en')
 
@@ -563,7 +561,7 @@ class TestGLWithPopulatedDB(TestGL):
         self.dummyQuestionnaire['steps'][1]['questionnaire_id'] = self.dummyContext['questionnaire_id']
         self.dummyQuestionnaire['steps'][1]['label'] = 'Whistleblower identity'
         self.dummyQuestionnaire['steps'][1]['presentation_order'] = 1
-        self.dummyQuestionnaire['steps'][1] = yield create_step(FIRST_TENANT, self.dummyQuestionnaire['steps'][1], 'en')
+        self.dummyQuestionnaire['steps'][1] = yield create_step(app_state.root_id, self.dummyQuestionnaire['steps'][1], 'en')
 
         if self.complex_field_population:
             yield self.add_whistleblower_identity_field_to_step(self.dummyQuestionnaire['steps'][1]['id'])
@@ -576,7 +574,7 @@ class TestGLWithPopulatedDB(TestGL):
         reference_field['instance'] = 'instance'
         reference_field['template_id'] = wbf.id
         reference_field['step_id'] = step_id
-        db_create_field(store, FIRST_TENANT, reference_field, 'en')
+        db_create_field(store, app_state.root_id, reference_field, 'en')
 
     def perform_submission_start(self):
         self.dummyToken = token.Token('submission')
@@ -594,7 +592,7 @@ class TestGLWithPopulatedDB(TestGL):
         self.dummySubmission['answers'] = yield self.fill_random_answers(self.dummyContext['id'])
         self.dummySubmission['total_score'] = 0
 
-        self.dummySubmission = yield create_submission(FIRST_TENANT,
+        self.dummySubmission = yield create_submission(app_state.get_root_tenant(),
                                                        self.dummySubmission,
                                                        self.dummyToken.uploaded_files,
                                                        True, 'en')
@@ -624,7 +622,7 @@ class TestGLWithPopulatedDB(TestGL):
                                       rtip_desc['id'],
                                       messageCreation)
 
-            yield rtip.create_identityaccessrequest(FIRST_TENANT,
+            yield rtip.create_identityaccessrequest(app_state.root_id,
                                                     rtip_desc['receiver_id'],
                                                     rtip_desc['id'],
                                                     identityaccessrequestCreation,

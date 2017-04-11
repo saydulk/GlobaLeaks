@@ -18,6 +18,7 @@ from globaleaks.handlers.base import BaseHandler
 from globaleaks.handlers.public import serialize_step
 from globaleaks.orm import transact
 from globaleaks.rest import errors, requests
+from globaleaks.state import app_state
 from globaleaks.security import hash_password, sha256, generateRandomReceipt
 from globaleaks.settings import GLSettings
 from globaleaks.utils.structures import Rosetta, get_localized_values
