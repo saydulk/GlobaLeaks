@@ -22,6 +22,7 @@ class TestStateChanges(helpers.TestGL):
     def test_delete(self):
         tenant_desc = yield tenant.create_tenant({'label': 'tenant-xxx'}, load_appdata())
 
+    @inlineCallbacks
     def test_init_and_refresh_app_state(self):
         yield self.db_test_init_and_refresh_app_state()
 
@@ -32,17 +33,22 @@ class TestStateChanges(helpers.TestGL):
         self.assertRaises(AttributeError, lambda x:x.disable_submissions, app_state.memc)
         self.assertEqual(len(app_state.tenant_states), 0)
 
+        app_state.db_refresh(store)
+
+        self.assertEqual(len(app_state.tenant_states), 1)
+
         # Add another tenant to the system
         new_ten = db_create_tenant(store, {'label': 'tn2.localhost:8082'}, load_appdata())
+
+        app_state.db_refresh(store)
 
         # Modify root_tenant config
         NodeFactory(store, app_state.root_id).set_val('disable_submissions', True)
 
-        store.flush()
         app_state.db_refresh(store)
 
         self.assertTrue(app_state.memc.disable_submissions)
-        self.assertEqual(len(app_state.tenant_states), 3)
+        self.assertEqual(len(app_state.tenant_states), 2)
 
         for ten_state in app_state.tenant_states.values():
             ten_state.db_refresh(store)
@@ -55,4 +61,4 @@ class TestStateChanges(helpers.TestGL):
 
         app_state.db_refresh(store)
 
-        self.assertEqual(len(app_state.tenant_states), 2)
+        self.assertEqual(len(app_state.tenant_states), 1)
