@@ -20,7 +20,6 @@ from globaleaks.handlers.admin.receiver import create_receiver
 from globaleaks.handlers.admin.field import db_create_field
 from globaleaks.handlers.admin.step import create_step
 from globaleaks.handlers.admin.questionnaire import get_questionnaire, db_get_questionnaire_steps
-from globaleaks.handlers.admin.tenant import create_tenant
 from globaleaks.handlers.admin.user import create_admin_user, create_custodian_user
 from globaleaks.handlers.submission import create_submission
 from globaleaks.rest.apicache import GLApiCache
@@ -198,6 +197,7 @@ BaseHandler.get_file_upload = get_file_upload
 class TestGL(unittest.TestCase):
     initialize_test_database_using_archived_db = True
     encryption_scenario = 'ENCRYPTED'
+    db_entries_count = {}
 
     @inlineCallbacks
     def setUp(self):
@@ -223,7 +223,7 @@ class TestGL(unittest.TestCase):
 
         allow_unencrypted = self.encryption_scenario in ['PLAINTEXT', 'MIXED']
 
-        # TODO Create a new app_state for every request instead of 
+        # TODO Create a new app_state for every request instead of
         # modifying this existing one.
         yield app_state.refresh()
 
@@ -239,6 +239,8 @@ class TestGL(unittest.TestCase):
         GLSettings.submission_minimum_delay = 0
 
         self.internationalized_text = load_appdata()['node']['whistleblowing_button']
+
+        yield self.collect_entries_count()
 
 
     def call_spigot(self):
@@ -258,6 +260,26 @@ class TestGL(unittest.TestCase):
 
     def tearDown(self):
         self.test_reactor.pump(self.call_spigot())
+
+    @transact
+    def collect_entries_count(self, store):
+        self.db_entries_count = {}
+
+        for m in models.__all__:
+            self.db_entries_count[m.__name__] = store.find(m).count()
+
+    @transact
+    def check_entries_count(self, store, diff=None):
+        if diff is None:
+            diff = {}
+
+        for m in models.__all__:
+            actual = store.find(m).count()
+            expected = self.db_entries_count[m.__name__] + diff.get(m.__name__, 0)
+
+            self.assertEqual(expected, actual,
+                             "Discrepancy in %s count: expected: %d, actual:%d" % \
+                             (m.__name__, expected, actual))
 
     def setUp_dummy(self):
         dummyStuff = MockDict()
