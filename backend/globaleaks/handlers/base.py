@@ -465,9 +465,6 @@ class BaseHandler(RequestHandler):
         self.tstate = self.app_state.tenant_states[tid]
 
         # TODO(tid_me) Make configuration choices based on tenant.
-        if self.app_state.memc.private.https_enabled:
-            self.set_header('Strict-Transport-Security', 'max-age=31536000')
-
         if self.app_state.memc.allow_indexing:
             self.clear_header("X-Robots-Tag")
 
