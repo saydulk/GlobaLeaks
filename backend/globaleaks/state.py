@@ -1,3 +1,9 @@
+<<<<<<< e2820ea82086f7827b2db5a83c70b82e709689b0
+=======
+from cyclone.util import ObjectDict
+
+from globaleaks.constants import ROOT_TENANT
+>>>>>>> Add https and onion hostname to tenant schema
 from globaleaks.utils.tor_exit_set import TorExitSet
 from globaleaks import LANGUAGES_SUPPORTED_CODES, models
 from globaleaks.constants import ROOT_TENANT
@@ -76,6 +82,8 @@ class AppState(object):
 
         self.root_id = ROOT_TENANT
         self.tenant_states = dict()
+        self.tenant_hostname_id_map = dict()
+        self.root_id = None
 
     def db_refresh(self, store):
         tenants = store.find(models.Tenant)

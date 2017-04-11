@@ -4,6 +4,11 @@ PRAGMA auto_vacuum = FULL;
 CREATE TABLE tenant (
     id INTEGER NOT NULL,
     label TEXT NOT NULL,
+    https_hostname TEXT,
+    onion_hostname TEXT,
+    -- Note NULL values do not count as unique
+    UNIQUE(https_hostname),
+    UNIQUE(onion_hostname),
     PRIMARY KEY(id)
 );
 

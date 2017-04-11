@@ -24,13 +24,17 @@ from globaleaks.state import app_state
 def serialize_tenant(tenant):
     return {
         'id': tenant.id,
-        'label': tenant.label
+        'label': tenant.label,
+        'https_hostname': tenant.https_hostname,
+        'onion_hostname': tenant.onion_hostname,
     }
 
 
 def db_create_tenant(store, desc, appdata):
     tenant = Tenant(desc)
     store.add(tenant)
+
+    #TODO remove flush
     store.flush()
 
     config.db_create_config(store, tenant.id)
