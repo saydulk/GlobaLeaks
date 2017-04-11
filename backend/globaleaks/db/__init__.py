@@ -46,7 +46,7 @@ def init_db(store, use_single_lang=False):
 
     db_create_tables(store)
 
-    root_tenant = {'label': 'Root tenant', 'https_hostname': 'localhost:8082'}
+    root_tenant = {'label': 'Root tenant', 'https_hostname': '127.0.0.1:8082'}
     tenant.db_create_tenant(store, root_tenant, appdata)
 
     db_update_appdata(store, appdata)
