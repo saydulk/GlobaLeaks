@@ -3,7 +3,7 @@
 from twisted.internet.defer import inlineCallbacks
 
 from globaleaks import models
-from globaleaks.constants import FIRST_TENANT
+from globaleaks.state import app_state
 from globaleaks.handlers.admin import modelimgs
 from globaleaks.tests import helpers
 

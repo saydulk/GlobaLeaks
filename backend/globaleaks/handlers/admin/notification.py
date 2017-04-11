@@ -11,6 +11,7 @@ from globaleaks.models.properties import iso_strf_time
 from globaleaks.orm import transact
 from globaleaks.rest import requests
 from globaleaks.security import parse_pgp_key
+from globaleaks.state import app_state
 from globaleaks.settings import GLSettings
 from globaleaks.utils.mailutils import sendmail
 from globaleaks.utils.sets import disjoint_union

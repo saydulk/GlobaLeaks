@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from twisted.internet.defer import inlineCallbacks
 
-from globaleaks.constants import FIRST_TENANT
+from globaleaks.state import app_state
 from globaleaks.handlers import authentication, admin
 from globaleaks.handlers.base import GLSessions
 from globaleaks.handlers.user import UserInstance
