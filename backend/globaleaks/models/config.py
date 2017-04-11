@@ -2,7 +2,7 @@ from storm.expr import And, Not
 from storm.locals import Storm, Bool, Int, Unicode, JSON
 
 from globaleaks import __version__
-from globaleaks.models import ModelWithTID
+from globaleaks.models.models import ModelWithTID
 from globaleaks.utils.utility import log
 
 import config_desc
