@@ -9,7 +9,6 @@
 from globaleaks.handlers.base import BaseHandler
 from globaleaks.rest import errors, requests
 from globaleaks.settings import GLSettings
-from globaleaks.utils.token import Token, TokenList
 
 
 class TokenCreate(BaseHandler):
@@ -56,7 +55,7 @@ class TokenInstance(BaseHandler):
         """
         request = self.validate_message(self.request.body, requests.TokenAnswerDesc)
 
-        token = TokenList.get(token_id)
+        token = self.req_state['app_state'].token_list.get(token_id)
 
         if not token.update(request):
             raise errors.TokenFailure('failed challenge')

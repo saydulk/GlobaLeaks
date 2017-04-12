@@ -22,7 +22,6 @@ from globaleaks.state import app_state
 from globaleaks.security import hash_password, sha256, generateRandomReceipt
 from globaleaks.settings import GLSettings
 from globaleaks.utils.structures import Rosetta, get_localized_values
-from globaleaks.utils.token import TokenList
 from globaleaks.utils.utility import log, get_expiration, \
     datetime_now, datetime_never, datetime_to_ISO8601
 
@@ -408,7 +407,7 @@ class SubmissionInstance(BaseHandler):
         request = self.validate_message(self.request.body, requests.SubmissionDesc)
 
         # The get and use method will raise if the token is invalid
-        token = TokenList.get(token_id)
+        token = self.req_state['app_state'].token_list.get(token_id)
         token.use()
 
         submission = yield create_submission(self.ten_state,
@@ -417,7 +416,7 @@ class SubmissionInstance(BaseHandler):
                                              self.check_tor2web(),
                                              self.request.language)
         # Delete the token only when a valid submission has been stored in the DB
-        TokenList.delete(token_id)
+        self.req_state['app_state'].token_list.delete(token_id)
 
         self.set_status(202)  # Updated, also if submission if effectively created (201)
         self.write(submission)

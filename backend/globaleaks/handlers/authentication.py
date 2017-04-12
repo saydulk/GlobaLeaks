@@ -9,7 +9,8 @@ from storm.expr import And
 from twisted.internet.defer import inlineCallbacks
 
 from globaleaks import security
-from globaleaks.handlers.base import BaseHandler, GLSessions, GLSession
+from globaleaks.handlers.base import BaseHandler
+from globaleaks.state import GLSession
 from globaleaks.models import User, User_Tenant
 from globaleaks.models import WhistleblowerTip
 from globaleaks.orm import transact
@@ -109,7 +110,7 @@ class AuthenticationHandler(BaseHandler):
 
     @BaseHandler.authenticated('*')
     def get(self):
-        if self.current_user and self.current_user.id not in GLSessions:
+        if self.current_user and self.current_user.id not in self.req_state['app_state'].gl_sessions:
             raise errors.NotAuthenticated
 
         self.write({
@@ -141,11 +142,12 @@ class AuthenticationHandler(BaseHandler):
         try:
             user_id, status, role, pcn = yield login(self.ten_state, username, password, using_tor2web)
             # Revoke all other sessions for the newly authenticated user
-            GLSessions.revoke_all_sessions(user_id)
+            self.req_state['app_state'].gl_sessions.revoke_all_sessions(user_id)
         finally:
             yield self.uniform_answers_delay()
 
         session = GLSession(user_id, role, status)
+        self.req_state['app_state'].gl_sessions.set(session.id, session)
 
         self.write({
             'session_id': session.id,
@@ -163,7 +165,7 @@ class AuthenticationHandler(BaseHandler):
         """
         if self.current_user:
             try:
-                del GLSessions[self.current_user.id]
+                del self.req_state['app_state'].gl_sessions[self.current_user.id]
             except KeyError:
                 raise errors.NotAuthenticated
 
@@ -189,7 +191,7 @@ class ReceiptAuthHandler(AuthenticationHandler):
 
         try:
             user_id = yield login_whistleblower(self.ten_state, receipt, using_tor2web)
-            GLSessions.revoke_all_sessions(user_id)
+            self.req_state['app_state'].gl_sessions.revoke_all_sessions(user_id)
         finally:
             yield self.uniform_answers_delay()
 

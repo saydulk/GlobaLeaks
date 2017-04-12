@@ -16,7 +16,6 @@ from globaleaks.orm import transact
 from globaleaks.rest import errors
 from globaleaks.security import directory_traversal_check
 from globaleaks.settings import GLSettings
-from globaleaks.utils.token import TokenList
 from globaleaks.utils.utility import log, datetime_now
 
 
@@ -123,7 +122,7 @@ class FileInstance(BaseHandler):
         Response: Unknown
         Errors: TokenFailure
         """
-        token = TokenList.get(token_id)
+        token = self.req_state['app_state'].token_list.get(token_id)
 
         log.debug("file upload with token associated: %s" % token)
 

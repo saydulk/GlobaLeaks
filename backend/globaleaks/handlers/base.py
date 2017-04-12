@@ -16,6 +16,7 @@ import urlparse
 
 from cyclone import web, template
 from cyclone.web import RequestHandler, HTTPError, HTTPAuthenticationRequired, RedirectHandler
+from cyclone.util import ObjectDict
 from twisted.internet import fdesc
 from twisted.internet.defer import inlineCallbacks
 from twisted.python.failure import Failure
@@ -24,7 +25,6 @@ from globaleaks.event import track_handler
 from globaleaks.rest import errors, requests
 from globaleaks.security import GLSecureTemporaryFile, directory_traversal_check, generateRandomKey
 from globaleaks.settings import GLSettings
-from globaleaks.state import app_state
 from globaleaks.utils.mailutils import mail_exception_handler, send_exception_email
 from globaleaks.utils.tempdict import TempDict
 from globaleaks.utils.utility import log, deferred_sleep, parse_accept_language_header
@@ -33,17 +33,6 @@ from globaleaks.utils.utility import log, deferred_sleep, parse_accept_language_
 HANDLER_EXEC_TIME_THRESHOLD = 30
 
 GLUploads = {}
-
-class GLSessionsFactory(TempDict):
-  '''Extends TempDict to provide session management functions ontop of temp session keys'''
-
-  def revoke_all_sessions(self, user_id):
-      for other_session in GLSessions.values():
-          if other_session.user_id == user_id:
-              log.debug("Revoking old session for %s" % user_id)
-              GLSessions.delete(other_session.id)
-
-GLSessions = GLSessionsFactory(timeout=GLSettings.authentication_lifetime)
 
 # https://github.com/globaleaks/GlobaLeaks/issues/1601
 mimetypes.add_type('image/svg+xml', '.svg')
@@ -156,31 +145,10 @@ class StaticFileProducer(object):
         self.handler = None
 
 
-class GLSession(object):
-    expireCall = None # attached to object by tempDict
-
-    def __init__(self, user_id, user_role, user_status):
-        self.id = generateRandomKey(42)
-        self.user_id = user_id
-        self.user_role = user_role
-        self.user_status = user_status
-
-        GLSessions.set(self.id, self)
-
-    def getTime(self):
-        return self.expireCall.getTime()
-
-    def __repr__(self):
-        return "%s %s expire in %s" % (self.user_role, self.user_id, self.expireCall)
-
-
 class BaseHandler(RequestHandler):
     serialize_lists = True
     handler_exec_time_threshold = HANDLER_EXEC_TIME_THRESHOLD
     filehandler = False
-
-    def initialize(self):
-        self.app_state = app_state
 
     @staticmethod
     def authenticated(role):
@@ -454,15 +422,18 @@ class BaseHandler(RequestHandler):
         self.req_id = GLSettings.requests_counter
         GLSettings.requests_counter += 1
 
+        #TODO tmp-shim
+        self.app_state = self.settings.app_state
+
         # Map a hostname to the tenant ID for the request
         host_hdr = self.request.headers.get('Host')
         # TODO(tid_me) study of tor redirect and https redirect below
-        tid = self.app_state.tenant_label_id_map.get(host_hdr, None)
+        tid = self.settings.app_state.tenant_label_id_map.get(host_hdr, None)
         if tid is None:
             raise errors.TenantIDNotFound()
 
         self.current_tenant = tid
-        self.ten_state = self.app_state.tenant_states[tid]
+        self.ten_state = self.settings.app_state.tenant_states[tid]
 
         # TODO(tid_me) Make configuration choices based on tenant.
         if self.app_state.memc.private.https_enabled:
@@ -510,6 +481,14 @@ class BaseHandler(RequestHandler):
 
         self.request.language = language
         self.set_header("Content-Language", language)
+
+        # NOTE construct request state object from all of the prepared parameters
+        self.req_state = ObjectDict({
+            'app_state': self.settings.app_state,
+            'ten_state': self.ten_state,
+            'ten_id': tid,
+        })
+
 
     def redirect_https(self):
         in_url = self.request.full_url()
@@ -624,7 +603,7 @@ class BaseHandler(RequestHandler):
         if session_id is None:
             return None
 
-        return GLSessions.get(session_id)
+        return self.req_state['app_state'].gl_sessions.get(session_id)
 
     def check_tor2web(self):
         return False if self.request.headers.get('X-Tor2Web', None) is None else True

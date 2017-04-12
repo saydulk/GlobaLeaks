@@ -11,10 +11,9 @@ from random import randint
 
 from datetime import datetime, timedelta
 
-from globaleaks.anomaly import Alarm
+#from globaleaks.anomaly import Alarm
 from globaleaks.rest import errors
 from globaleaks.security import sha256, generateRandomKey
-from globaleaks.state import app_state
 from globaleaks.settings import GLSettings
 from globaleaks.utils.tempdict import TempDict
 from globaleaks.utils.utility import log, datetime_now, datetime_to_ISO8601
@@ -44,12 +43,10 @@ class TokenListClass(TempDict):
         return ret
 
 
-TokenList = TokenListClass()
-
-
 class Token(object):
     MAX_USES = 30
 
+    # TODO NOTE app_state.broken
     def __init__(self, token_kind="submission", uses=MAX_USES):
         self.id = generateRandomKey(42)
         self.kind = token_kind
@@ -100,7 +97,9 @@ class Token(object):
         return r
 
     def generate_token_challenges(self):
-        if Alarm.stress_levels['activity'] >= 1 and app_state.memc.enable_captcha:
+        # TODO(param_me)
+        #if Alarm.stress_levels['activity'] >= 1 and app_state.memc.enable_captcha:
+        if False:
             random_a = randint(0, 99)
             random_b = randint(0, 99)
 
@@ -110,7 +109,9 @@ class Token(object):
                 'solved': False
             }
 
-        if app_state.memc.enable_proof_of_work:
+        # TODO(param_me)
+        #if app_state.memc.enable_proof_of_work:
+        if True:
             self.proof_of_work = {
                 'question': generateRandomKey(20),
                 'solved': False

@@ -1,10 +1,39 @@
 from cyclone.util import ObjectDict
 
-from globaleaks.utils.tor_exit_set import TorExitSet
 from globaleaks import LANGUAGES_SUPPORTED_CODES
 from globaleaks import models
 from globaleaks.orm import transact, transact_sync
 from globaleaks.settings import GLSettings
+from globaleaks.security import generateRandomKey
+from globaleaks.utils.tempdict import TempDict
+from globaleaks.utils.token import TokenListClass
+from globaleaks.utils.tor_exit_set import TorExitSet
+
+class GLSessionsFactory(TempDict):
+  '''Extends TempDict to provide session management functions ontop of temp session keys'''
+
+  def revoke_all_sessions(self, user_id):
+      for other_session in self.values():
+          if other_session.user_id == user_id:
+              log.debug("Revoking old session for %s" % user_id)
+              self.delete(other_session.id)
+
+
+class GLSession(object):
+    expireCall = None # attached to object by tempDict
+
+    def __init__(self, user_id, user_role, user_status):
+        self.id = generateRandomKey(42)
+        self.user_id = user_id
+        self.user_role = user_role
+        self.user_status = user_status
+
+    def getTime(self):
+        return self.expireCall.getTime()
+
+    def __repr__(self):
+        return "%s %s expire in %s" % (self.user_role, self.user_id, self.expireCall)
+
 
 # TODO Subclass from dictionary
 class State(object):
@@ -14,6 +43,9 @@ class State(object):
         self.tor_exit_set = TorExitSet()
         self.jobs = []
         self.jobs_monitor = None
+
+        self.gl_sessions = GLSessionsFactory(timeout=GLSettings.authentication_lifetime)
+        self.token_list = TokenListClass()
 
         self.memc = ObjectDict({
             'maximum_namesize': 128,
