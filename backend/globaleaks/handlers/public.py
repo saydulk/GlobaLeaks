@@ -229,7 +229,7 @@ def serialize_step(store, step, language):
     return get_localized_values(ret_dict, step, step.localized_keys, language)
 
 
-def serialize_receiver(ten_state, receiver, language):
+def serialize_receiver(store, receiver, language):
     """
     Serialize a receiver description
 
@@ -242,7 +242,7 @@ def serialize_receiver(ten_state, receiver, language):
     ret_dict = {
         'id': receiver.id,
         'name': receiver.user.public_name,
-        'username': receiver.user.username if ten_state.memc.simplified_login else '',
+        'username': receiver.user.username,
         'state': receiver.user.state,
         'configuration': receiver.configuration,
         'presentation_order': receiver.presentation_order,
@@ -255,20 +255,17 @@ def serialize_receiver(ten_state, receiver, language):
     return get_localized_values(ret_dict, receiver, receiver.localized_keys, language)
 
 
+def db_get_questionnaire_list(store, language):
+    return [serialize_questionnaire(store, questionnaire, language)
+                for questionnaire in store.find(models.Questionnaire)]
+
+
 def db_get_public_context_list(store, tid, language):
     # fetch context that have associated at least one receiver
     contexts = store.find(models.Context, models.Context.tid == tid,
                                           models.Context.id == models.Receiver_Context.context_id)
 
     return [serialize_context(store, context, language) for context in contexts]
-
-
-def db_get_questionnaire_list(store, language):
-    questionnaire_list = []
-    for questionnaire in store.find(models.Questionnaire):
-        questionnaire_list.append(serialize_questionnaire(store, questionnaire, language))
-
-    return questionnaire_list
 
 
 def db_get_public_receiver_list(store, ten_state, language):
@@ -280,7 +277,13 @@ def db_get_public_receiver_list(store, ten_state, language):
                            models.Receiver.id == models.User_Tenant.user_id,
                            models.User_Tenant.tenant_id == ten_state.id)
 
-    return [serialize_receiver(ten_state, receiver, language) for receiver in receivers]
+    ret = [serialize_receiver(store, receiver, language) for receiver in receivers]
+
+    if ten_state.memc.simplified_login:
+        for r in ret:
+            r['username'] = ''
+
+    return ret
 
 
 @transact
