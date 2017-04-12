@@ -381,7 +381,7 @@ class ConfigHandler(BaseHandler):
     def post(self):
         try:
             yield try_to_enable_https(self.current_tenant)
-            self.ten_state.memc.private.https_enabled = True
+            self.tstate.memc.private.https_enabled = True
 
             yield GLSettings.state.process_supervisor.maybe_launch_https_workers()
             self.set_status(200)
@@ -398,7 +398,7 @@ class ConfigHandler(BaseHandler):
         Disables HTTPS config and shutdown subprocesses.
         '''
         yield disable_https(self.current_tenant)
-        self.ten_state.memc.private.https_enabled = False
+        self.tstate.memc.private.https_enabled = False
 
         yield GLSettings.state.process_supervisor.shutdown()
         self.set_status(200)

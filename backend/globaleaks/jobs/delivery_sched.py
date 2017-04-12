@@ -80,7 +80,7 @@ def receiverfile_planning(store):
                 'status': u'processing',
                 'path': ifile.file_path,
                 'size': ifile.size,
-                # TODO (ten_state) receiver language could be outside of accepted set without foreign key constraint
+                # TODO (tstate) receiver language could be outside of accepted set without foreign key constraint
                 'receiver': admin_serialize_receiver(store, rtip.receiver, rtip.receiver.user.language)
             })
 
@@ -149,7 +149,7 @@ def process_files(receiverfiles_maps):
                             rcounter, rfileinfo['receiver']['name'], rfileinfo['path'], excep)
                     )
                     rfileinfo['status'] = u'unavailable'
-            # TODO(ten_state) this needs to use the TENANTS settings....
+            # TODO(tstate) this needs to use the TENANTS settings....
             elif app_state.memc.allow_unencrypted:
                 receiverfiles_map['plaintext_file_needed'] = True
                 rfileinfo['status'] = u'reference'

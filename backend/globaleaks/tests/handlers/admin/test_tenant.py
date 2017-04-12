@@ -50,8 +50,8 @@ class TestStateChanges(helpers.TestGL):
         self.assertTrue(app_state.memc.disable_submissions)
         self.assertEqual(len(app_state.tenant_states), 2)
 
-        for ten_state in app_state.tenant_states.values():
-            ten_state.db_refresh(store)
+        for tstate in app_state.tenant_states.values():
+            tstate.db_refresh(store)
 
         app_state.db_refresh_exception_delivery_list(store)
 

@@ -265,7 +265,7 @@ class TestGL(unittest.TestCase):
     def collect_entries_count(self, store):
         self.db_entries_count = {}
 
-        for m in models.__all__:
+        for m in models.models_list:
             self.db_entries_count[m.__name__] = store.find(m).count()
 
     @transact
@@ -273,7 +273,7 @@ class TestGL(unittest.TestCase):
         if diff is None:
             diff = {}
 
-        for m in models.__all__:
+        for m in models.models_list:
             actual = store.find(m).count()
             expected = self.db_entries_count[m.__name__] + diff.get(m.__name__, 0)
 
@@ -553,17 +553,15 @@ class TestGLWithPopulatedDB(TestGL):
 
     @inlineCallbacks
     def fill_data(self):
-        root_ten = app_state.get_root_tenant()
-
         # fill_data/create_admin
-        self.dummyAdminUser = yield create_admin_user(root_ten, copy.deepcopy(self.dummyAdminUser), 'en')
+        self.dummyAdminUser = yield create_admin_user(app_state.root_id, copy.deepcopy(self.dummyAdminUser), 'en')
 
         # fill_data/create_custodian
-        self.dummyCustodianUser = yield create_custodian_user(root_ten, copy.deepcopy(self.dummyCustodianUser), 'en')
+        self.dummyCustodianUser = yield create_custodian_user(app_state.root_id, copy.deepcopy(self.dummyCustodianUser), 'en')
         # fill_data/create_receiver
-        self.dummyReceiver_1 = yield create_receiver(root_ten, copy.deepcopy(self.dummyReceiver_1), 'en')
+        self.dummyReceiver_1 = yield create_receiver(app_state.root_id, copy.deepcopy(self.dummyReceiver_1), 'en')
         self.dummyReceiverUser_1['id'] = self.dummyReceiver_1['id']
-        self.dummyReceiver_2 = yield create_receiver(root_ten, copy.deepcopy(self.dummyReceiver_2), 'en')
+        self.dummyReceiver_2 = yield create_receiver(app_state.root_id, copy.deepcopy(self.dummyReceiver_2), 'en')
         self.dummyReceiverUser_2['id'] = self.dummyReceiver_2['id']
         receivers_ids = [self.dummyReceiver_1['id'], self.dummyReceiver_2['id']]
 

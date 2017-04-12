@@ -264,14 +264,14 @@ def db_postpone_expiration_date(rtip):
 
 
 @transact
-def delete_rtip(store, ten_state, user_id, rtip_id):
+def delete_rtip(store, tstate, user_id, rtip_id):
     """
     Delete internalTip is possible only to Receiver with
     the dedicated property.
     """
     rtip = db_access_rtip(store, user_id, rtip_id)
 
-    if not (ten_state.memc.can_delete_submission or
+    if not (tstate.memc.can_delete_submission or
                 rtip.receiver.can_delete_submission):
         raise errors.ForbiddenOperation
 
@@ -279,16 +279,16 @@ def delete_rtip(store, ten_state, user_id, rtip_id):
 
 
 @transact
-def postpone_expiration_date(store, ten_state, user_id, rtip_id):
+def postpone_expiration_date(store, tstate, user_id, rtip_id):
     rtip = db_access_rtip(store, user_id, rtip_id)
 
-    if not (ten_state.memc.can_postpone_expiration or
+    if not (tstate.memc.can_postpone_expiration or
                 rtip.receiver.can_postpone_expiration):
 
         raise errors.ExtendTipLifeNotEnabled
 
     log.debug("Postpone check: Node %s, Receiver %s" % (
-       "True" if ten_state.memc.can_postpone_expiration else "False",
+       "True" if tstate.memc.can_postpone_expiration else "False",
        "True" if rtip.receiver.can_postpone_expiration else "False"
     ))
 
@@ -301,10 +301,10 @@ def postpone_expiration_date(store, ten_state, user_id, rtip_id):
 
 
 @transact
-def set_internaltip_variable(store, ten_state, user_id, rtip_id, key, value):
+def set_internaltip_variable(store, tstate, user_id, rtip_id, key, value):
     rtip = db_access_rtip(store, user_id, rtip_id)
 
-    if not (ten_state.memc.can_grant_permissions or
+    if not (tstate.memc.can_grant_permissions or
             rtip.receiver.can_grant_permissions):
         raise errors.ForbiddenOperation
 
@@ -427,7 +427,7 @@ class RTipInstance(BaseHandler):
         request = self.validate_message(self.request.body, requests.TipOpsDesc)
 
         if request['operation'] == 'postpone':
-            yield postpone_expiration_date(self.ten_state, self.current_user.user_id, tip_id)
+            yield postpone_expiration_date(self.tstate, self.current_user.user_id, tip_id)
         elif request['operation'] == 'set':
             key = request['args']['key']
             value = request['args']['value']
@@ -439,7 +439,7 @@ class RTipInstance(BaseHandler):
                 yield set_receivertip_variable(self.current_user.user_id, tip_id, key, value)
             elif key in internal_var_lst and isinstance(value, bool):
                 # Elements of internal_var_lst are not stored in the receiver's tip table
-                yield set_internaltip_variable(self.ten_state, self.current_user.user_id, tip_id, key, value)
+                yield set_internaltip_variable(self.tstate, self.current_user.user_id, tip_id, key, value)
 
         # TODO A 202 is returned regardless of whether or not an update was performed.
         self.set_status(202)  # Updated
@@ -454,7 +454,7 @@ class RTipInstance(BaseHandler):
 
         delete: remove the Internaltip and all the associated data
         """
-        yield delete_rtip(self.ten_state, self.current_user.user_id, tip_id)
+        yield delete_rtip(self.tstate, self.current_user.user_id, tip_id)
 
 
 class RTipCommentCollection(BaseHandler):

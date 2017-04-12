@@ -195,7 +195,7 @@ class BaseHandler(RequestHandler):
                 If is logged with the right account, is accepted
                 If is logged with the wrong account, is rejected with a special message
                 """
-                if cls.ten_state.memc.basic_auth:
+                if cls.tstate.memc.basic_auth:
                     cls.basic_auth()
 
                 if not cls.current_user:
@@ -218,7 +218,7 @@ class BaseHandler(RequestHandler):
         If the user is logged in an authenticated sessions it does refresh the session.
         """
         def wrapper(cls, *args, **kwargs):
-            if cls.ten_state.memc.basic_auth:
+            if cls.tstate.memc.basic_auth:
                 cls.basic_auth()
 
             return f(cls, *args, **kwargs)
@@ -235,7 +235,7 @@ class BaseHandler(RequestHandler):
                 using_tor2web = cls.check_tor2web()
 
                 # TODO(tid_review) consider T2W interactions
-                if using_tor2web and not cls.ten_state.memc.accept_tor2web_access[role]:
+                if using_tor2web and not cls.tstate.memc.accept_tor2web_access[role]:
                     log.err("Denied request on Tor2web for role %s and resource '%s'" %
                             (role, cls.request.uri))
                     raise errors.TorNetworkRequired
@@ -256,7 +256,7 @@ class BaseHandler(RequestHandler):
         Decorator that enforces https_enabled is set to True
         """
         def wrapper(cls, *args, **kwargs):
-            if not cls.ten_state.memc.private.https_enabled:
+            if not cls.tstate.memc.private.https_enabled:
                 raise errors.FailedSanityCheck()
 
             return f(cls, *args, **kwargs)
@@ -269,7 +269,7 @@ class BaseHandler(RequestHandler):
         Decorator that enforces https_enabled is set to False
         """
         def wrapper(cls, *args, **kwargs):
-            if cls.ten_state.memc.private.https_enabled:
+            if cls.tstate.memc.private.https_enabled:
                 raise errors.FailedSanityCheck()
 
             return f(cls, *args, **kwargs)
@@ -283,8 +283,8 @@ class BaseHandler(RequestHandler):
                 auth_type, data = self.request.headers["Authorization"].split()
                 usr, pwd = base64.b64decode(data).split(":", 1)
                 if auth_type != "Basic" or \
-                    usr != self.ten_state.memc.basic_auth_username or \
-                    pwd != self.ten_state.memc.basic_auth_password:
+                    usr != self.tstate.memc.basic_auth_username or \
+                    pwd != self.tstate.memc.basic_auth_password:
                     msg = "Authentication failed"
             except AssertionError:
                 msg = "Authentication failed"
@@ -462,7 +462,7 @@ class BaseHandler(RequestHandler):
             raise errors.TenantIDNotFound()
 
         self.current_tenant = tid
-        self.ten_state = self.app_state.tenant_states[tid]
+        self.tstate = self.app_state.tenant_states[tid]
 
         # TODO(tid_me) Make configuration choices based on tenant.
         if self.app_state.memc.private.https_enabled:
@@ -476,7 +476,7 @@ class BaseHandler(RequestHandler):
 
         # TODO(tid_me) needs SNI to work -- local_hosts may not work as well.
         if should_redirect_https(self.request,
-                                 self.ten_state.memc.private.https_enabled,
+                                 self.tstate.memc.private.https_enabled,
                                  GLSettings.local_hosts):
             log.debug('Decided to redirect to https')
             self.redirect_https()
@@ -500,13 +500,13 @@ class BaseHandler(RequestHandler):
 
         if language is None:
             for l in parse_accept_language_header(self.request.headers):
-                if l in self.ten_state.memc.languages_enabled:
+                if l in self.tstate.memc.languages_enabled:
                     language = l
                     break
 
-        if language is None or language not in self.ten_state.memc.languages_enabled:
+        if language is None or language not in self.tstate.memc.languages_enabled:
             # TODO can add an additional check which uses app_state.default_lang
-            language = self.ten_state.memc.default_language
+            language = self.tstate.memc.default_language
 
         self.request.language = language
         self.set_header("Content-Language", language)

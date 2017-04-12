@@ -66,11 +66,11 @@ class GLClientContextFactory(ClientContextFactory):
         return ctx
 
 
-def sendmail(ten_state, to_address, subject, body):
+def sendmail(tstate, to_address, subject, body):
     """
     Sends an email using SMTPS/SMTP+TLS and torify the connection
 
-    @param ten_state: application state that provides the out going mail server
+    @param tstate: application state that provides the out going mail server
     @param to_address: the to address field of the email
     @param subject: the mail subject
     @param body: the mail body
@@ -92,15 +92,15 @@ def sendmail(ten_state, to_address, subject, body):
 
             return result_deferred.errback(reason)
 
-        authentication_username=ten_state.memc.notif.username
-        authentication_password=ten_state.memc.private.smtp_password
-        from_address=ten_state.memc.notif.source_email
-        smtp_host=ten_state.memc.notif.server
-        smtp_port=ten_state.memc.notif.port
-        security=ten_state.memc.notif.security
+        authentication_username=tstate.memc.notif.username
+        authentication_password=tstate.memc.private.smtp_password
+        from_address=tstate.memc.notif.source_email
+        smtp_host=tstate.memc.notif.server
+        smtp_port=tstate.memc.notif.port
+        security=tstate.memc.notif.security
 
-        message = MIME_mail_build(ten_state.memc.notif.source_name,
-                                  ten_state.memc.notif.source_email,
+        message = MIME_mail_build(tstate.memc.notif.source_name,
+                                  tstate.memc.notif.source_email,
                                   to_address,
                                   to_address,
                                   subject,
@@ -134,7 +134,7 @@ def sendmail(ten_state, to_address, subject, body):
             #  Hooking the test down to here is a trick to be able to test all the above code :)
             return defer.succeed(None)
 
-        if ten_state.memc.anonymize_outgoing_connections:
+        if tstate.memc.anonymize_outgoing_connections:
             socksProxy = TCP4ClientEndpoint(reactor, GLSettings.socks_host, GLSettings.socks_port, timeout=GLSettings.mail_timeout)
             endpoint = SOCKS5ClientEndpoint(smtp_host.encode('utf-8'), smtp_port, socksProxy)
         else:

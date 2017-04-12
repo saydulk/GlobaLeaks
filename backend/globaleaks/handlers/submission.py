@@ -288,11 +288,11 @@ def create_whistleblowertip(*args):
     return db_create_whistleblowertip(*args)[0] # This exports the receipt only
 
 
-def db_create_submission(store, ten_state, request, uploaded_files, t2w, language):
+def db_create_submission(store, tstate, request, uploaded_files, t2w, language):
     answers = request['answers']
 
     context = store.find(models.Context, id=request['context_id'],
-                                         tid=ten_state.id).one()
+                                         tid=tstate.id).one()
     if not context:
         raise errors.ContextIdNotFound
 
@@ -359,7 +359,7 @@ def db_create_submission(store, ten_state, request, uploaded_files, t2w, languag
         log.err("Submission create: unable to create db entry for files: %s" % excep)
         raise excep
 
-    receipt, wbtip = db_create_whistleblowertip(store, ten_state.memc.private.receipt_salt, submission)
+    receipt, wbtip = db_create_whistleblowertip(store, tstate.memc.private.receipt_salt, submission)
 
     if submission.context.maximum_selectable_receivers > 0 and \
                     len(request['receivers']) > submission.context.maximum_selectable_receivers:
@@ -368,7 +368,7 @@ def db_create_submission(store, ten_state, request, uploaded_files, t2w, languag
     rtips = []
     for receiver in context.receivers:
         if receiver.id in request['receivers']:
-            if not ten_state.memc.allow_unencrypted and receiver.user.pgp_key_public == '':
+            if not tstate.memc.allow_unencrypted and receiver.user.pgp_key_public == '':
                 continue
 
             rtips.append(db_create_receivertip(store, receiver, submission))
@@ -386,8 +386,8 @@ def db_create_submission(store, ten_state, request, uploaded_files, t2w, languag
 
 
 @transact
-def create_submission(store, ten_state, request, uploaded_files, t2w, language):
-    return db_create_submission(store, ten_state, request, uploaded_files, t2w, language)
+def create_submission(store, tstate, request, uploaded_files, t2w, language):
+    return db_create_submission(store, tstate, request, uploaded_files, t2w, language)
 
 
 class SubmissionInstance(BaseHandler):
@@ -411,7 +411,7 @@ class SubmissionInstance(BaseHandler):
         token = TokenList.get(token_id)
         token.use()
 
-        submission = yield create_submission(self.ten_state,
+        submission = yield create_submission(self.tstate,
                                              request,
                                              token.uploaded_files,
                                              self.check_tor2web(),

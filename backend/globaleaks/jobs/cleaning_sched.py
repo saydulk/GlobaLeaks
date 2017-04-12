@@ -13,6 +13,7 @@ from globaleaks.handlers.admin.receiver import admin_serialize_receiver
 from globaleaks.handlers.rtip import db_delete_itips, serialize_rtip
 from globaleaks.jobs.base import GLJob
 from globaleaks.orm import transact_sync
+from globaleaks.state import app_state
 from globaleaks.security import overwrite_and_remove
 from globaleaks.settings import GLSettings
 from globaleaks.utils.templating import Templating
@@ -23,11 +24,13 @@ from globaleaks.utils.utility import log, datetime_now, datetime_never, \
 __all__ = ['CleaningSchedule']
 
 
-def db_clean_expired_wbtips(store, ten_state):
-    threshold = datetime_now() - timedelta(days=ten_state.memc.wbtip_timetolive)
+def db_clean_expired_wbtips(store, tid, tstate):
+    threshold = datetime_now() - timedelta(days=tstate.memc.wbtip_timetolive)
 
     wbtips = store.find(models.WhistleblowerTip, models.WhistleblowerTip.id == models.InternalTip.id,
-                                                 models.InternalTip.wb_last_access < threshold)
+                                                 models.InternalTip.wb_last_access < threshold,
+                                                 models.InternalTip.context_id == models.Context.id,
+                                                 models.Context.tid == tid)
 
     for wbtip in wbtips:
         log.info("Disabling WB access to %s" % wbtip.id)
@@ -44,12 +47,12 @@ class CleaningSchedule(GLJob):
          return (3600 * 24) - (current_time.hour * 3600) - (current_time.minute * 60) - current_time.second
 
     @transact_sync
-    def clean_expired_wbtips(self, store, ten_state):
+    def clean_expired_wbtips(self, store, tid, tstate):
         """
         This function checks all the InternalTips and deletes WhistleblowerTips
         that have not been accessed after `threshold`.
         """
-        db_clean_expired_wbtips(store, ten_state)
+        db_clean_expired_wbtips(store, tid, tstate)
 
     @transact_sync
     def clean_expired_itips(self, store):
@@ -61,14 +64,16 @@ class CleaningSchedule(GLJob):
         db_delete_itips(store, store.find(models.InternalTip, models.InternalTip.expiration_date < datetime_now()))
 
     @transact_sync
-    def check_for_expiring_submissions(self, store, ten_state):
-        threshold = datetime_now() + timedelta(hours=ten_state.memc.notif.tip_expiration_threshold)
+    def check_for_expiring_submissions(self, store, tid, tstate):
+        threshold = datetime_now() + timedelta(hours=tstate.memc.notif.tip_expiration_threshold)
         receivers = store.find(models.Receiver)
         for receiver in receivers:
             rtips = store.find(models.ReceiverTip, models.ReceiverTip.internaltip_id == models.InternalTip.id,
                                                    models.InternalTip.expiration_date < threshold,
                                                    models.ReceiverTip.receiver_id == models.Receiver.id,
-                                                   models.Receiver.id == receiver.id)
+                                                   models.Receiver.id == receiver.id,
+                                                   models.InternalTip.context_id == models.Context.id,
+                                                   models.Context.tid == tid)
 
             if rtips.count() == 0:
               continue
@@ -151,13 +156,14 @@ class CleaningSchedule(GLJob):
             log.debug("Ending secure delete of file %s (execution time: %.2f)" % (file_to_delete, current_run_time))
 
     def operation(self):
-        for ten_state in app_state.tenant_states.values():
-            self.clean_expired_wbtips(ten_state)
+        for tid, tstate in app_state.tenant_states.items():
+            print tstate
+            self.clean_expired_wbtips(tid, tstate)
 
         self.clean_expired_itips()
 
-        for ten_state in app_state.tenant_states.values():
-            self.check_for_expiring_submissions(ten_state)
+        for tid, tstate in app_state.tenant_states.items():
+            self.check_for_expiring_submissions(tid, tstate)
 
         self.clean_db()
 

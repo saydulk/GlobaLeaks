@@ -17,35 +17,32 @@ from globaleaks.utils.utility import log, datetime_now
 from globaleaks.state import app_state
 
 
-def db_create_admin_user(store, ten_state, request, language):
+def db_create_admin_user(store, tid, request, language):
     """
     Creates a new admin
     Returns:
         (dict) the admin descriptor
     """
-    user = db_create_user(store, ten_state, request, language)
+    user = db_create_user(store, tid, request, language)
 
     log.debug("Created new admin")
-
-    # TODO (ten_state) this may change the global application state
-    app_state.db_refresh_exception_delivery_list(store)
 
     return user
 
 
 @transact
-def create_admin_user(store, ten_state, request, language):
-    new_admin = db_create_admin_user(store, ten_state, request, language)
+def create_admin_user(store, tid, request, language):
+    new_admin = db_create_admin_user(store, tid, request, language)
     return user_serialize_user(store, new_admin, language)
 
 
-def db_create_custodian_user(store, ten_state, request, language):
+def db_create_custodian_user(store, tid, request, language):
     """
     Creates a new custodian
     Returns:
         (dict) the custodian descriptor
     """
-    user = db_create_user(store, ten_state, request, language)
+    user = db_create_user(store, tid, request, language)
 
     log.debug("Created new custodian")
 
@@ -53,18 +50,18 @@ def db_create_custodian_user(store, ten_state, request, language):
 
 
 @transact
-def create_custodian_user(store, ten_state, request, language):
-    new_custodian = db_create_custodian_user(store, ten_state, request, language)
+def create_custodian_user(store, tid, request, language):
+    new_custodian = db_create_custodian_user(store, tid, request, language)
     return user_serialize_user(store, new_custodian, language)
 
 
-def db_create_receiver(store, ten_state, request, language):
+def db_create_receiver(store, tid, request, language):
     """
     Creates a new receiver
     Returns:
         (dict) the receiver descriptor
     """
-    user = db_create_user(store, ten_state, request, language)
+    user = db_create_user(store, tid, request, language)
 
     fill_localized_keys(request, models.Receiver.localized_keys, language)
 
@@ -81,12 +78,12 @@ def db_create_receiver(store, ten_state, request, language):
 
 
 @transact
-def create_receiver_user(store, ten_state, request, language):
-    new_receiver = db_create_receiver(store, ten_state, request, language)
+def create_receiver_user(store, tid, request, language):
+    new_receiver = db_create_receiver(store, tid, request, language)
     return user_serialize_user(store, new_receiver.user, language)
 
 
-def db_create_user(store, ten_state, request, language):
+def db_create_user(store, tid, request, language):
     fill_localized_keys(request, models.User.localized_keys, language)
 
     apply_pgp_options(request)
@@ -112,14 +109,14 @@ def db_create_user(store, ten_state, request, language):
 
     password = request['password']
     if len(password) == 0:
-        password = ten_state.memc.default_password
+        password = app_state.tenant_states[tid].memc.default_password
 
     user.salt = security.generateRandomSalt()
     user.password = security.hash_password(password, user.salt)
 
     store.add(user)
 
-    tenant = store.get(models.Tenant, ten_state.id)
+    tenant = store.get(models.Tenant, tid)
 
     tenant.users.add(user)
 
@@ -144,10 +141,6 @@ def db_admin_update_user(store, tid, user_id, request, language):
         user.password = security.hash_password(password, user.salt)
         user.password_change_date = datetime_now()
 
-    if user.role == 'admin':
-        # TODO (ten_state) may not change delivery_list
-        app_state.db_refresh_exception_delivery_list(store)
-
     return user
 
 
@@ -169,12 +162,12 @@ def get_user(store, tid, user_id, language):
     return user_serialize_user(store, db_get_user(store, tid, user_id), language)
 
 
-def db_get_admin_users(store, ten_state):
+def db_get_admin_users(store, tid):
     users = store.find(models.User, models.User.role == u'admin',
                                     models.User.id == models.User_Tenant.user_id,
-                                    models.User_Tenant.tenant_id == ten_state.id)
+                                    models.User_Tenant.tenant_id == tid)
 
-    return [user_serialize_user(store, user, ten_state.memc.default_language) for user in users]
+    return [user_serialize_user(store, user, app_state.tenant_states[tid].memc.default_language) for user in users]
 
 
 @transact
@@ -232,14 +225,12 @@ class UsersCollection(BaseHandler):
         request = self.validate_message(self.request.body,
                                         requests.AdminUserDesc)
 
-        ts = self.ten_state
-
         if request['role'] == 'receiver':
-            response = yield create_receiver_user(ts, request, self.request.language)
+            response = yield create_receiver_user(self.current_tenant, request, self.request.language)
         elif request['role'] == 'custodian':
-            response = yield create_custodian_user(ts, request, self.request.language)
+            response = yield create_custodian_user(self.current_tenant, request, self.request.language)
         elif request['role'] == 'admin':
-            response = yield create_admin_user(ts, request, self.request.language)
+            response = yield create_admin_user(self.current_tenant, request, self.request.language)
         else:
             raise errors.InvalidInputFormat
 

@@ -124,7 +124,7 @@ class NotificationInstance(BaseHandler):
                                              request,
                                              self.request.language)
 
-        # TODO(ten_state) invalidate cur tenant_state
+        # TODO(tstate) invalidate cur tenant_state
         yield app_state.refresh()
 
         self.set_status(202)
@@ -145,7 +145,7 @@ class NotificationTestInstance(BaseHandler):
         callback until both the db query and the SMTP round trip return.
         '''
         user = yield get_user_settings(self.current_user.user_id,
-                                       self.ten_state.memc.default_language)
+                                       self.tstate.memc.default_language)
 
         language = user['language']
 
@@ -164,7 +164,7 @@ class NotificationTestInstance(BaseHandler):
         # If sending the email fails the exception mail address will be mailed.
         # If the failure is due to a bad SMTP config ths will fail too.
         try:
-            yield sendmail(self.ten_state, send_to, subject, body)
+            yield sendmail(self.tstate, send_to, subject, body)
         except Exception as e:
             log.debug("Sending to admin failed. Trying an exception mail")
             raise e

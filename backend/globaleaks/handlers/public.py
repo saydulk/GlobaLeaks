@@ -268,18 +268,18 @@ def db_get_public_context_list(store, tid, language):
     return [serialize_context(store, context, language) for context in contexts]
 
 
-def db_get_public_receiver_list(store, ten_state, language):
+def db_get_public_receiver_list(store, tstate, language):
     # fetch receivers that have associated at least one context
     receivers = store.find(models.Receiver,
                            models.Receiver.id == models.User.id,
                            models.User.state != u'disabled',
                            models.Receiver.id == models.Receiver_Context.receiver_id,
                            models.Receiver.id == models.User_Tenant.user_id,
-                           models.User_Tenant.tenant_id == ten_state.id)
+                           models.User_Tenant.tenant_id == tstate.id)
 
     ret = [serialize_receiver(store, receiver, language) for receiver in receivers]
 
-    if ten_state.memc.simplified_login:
+    if tstate.memc.simplified_login:
         for r in ret:
             r['username'] = ''
 
@@ -287,12 +287,12 @@ def db_get_public_receiver_list(store, ten_state, language):
 
 
 @transact
-def get_public_resources(store, ten_state, language):
+def get_public_resources(store, tstate, language):
     return {
-        'node': db_serialize_node(store, ten_state.id, language),
-        'contexts': db_get_public_context_list(store, ten_state.id, language),
+        'node': db_serialize_node(store, tstate.id, language),
+        'contexts': db_get_public_context_list(store, tstate.id, language),
         'questionnaires': db_get_questionnaire_list(store, language),
-        'receivers': db_get_public_receiver_list(store, ten_state, language),
+        'receivers': db_get_public_receiver_list(store, tstate, language),
     }
 
 
@@ -308,6 +308,6 @@ class PublicResource(BaseHandler):
                                    'public',
                                    self.request.language,
                                    get_public_resources,
-                                   self.ten_state,
+                                   self.tstate,
                                    self.request.language)
         self.write(ret)

@@ -772,7 +772,7 @@ Tenant.users = ReferenceSet(
     User.id
 )
 
-__all__ = [
+models_list = [
     Anomalies,
     ArchivedSchema,
     Comment,

@@ -20,8 +20,8 @@ from globaleaks.utils.utility import log, datetime_null
 
 
 @transact
-def wizard(store, ten_state, request, language):
-    node = NodeFactory(store, ten_state.id)
+def wizard(store, tid, request, language):
+    node = NodeFactory(store, tid)
 
     if node.get_val('wizard_done'):
         # TODO report as anomaly
@@ -35,20 +35,20 @@ def wizard(store, ten_state, request, language):
     node.set_val('default_language', language)
     node.set_val('wizard_done', True)
 
-    node_l10n = NodeL10NFactory(store, ten_state.id)
+    node_l10n = NodeL10NFactory(store, tid)
 
     node_l10n.set_val('description', language, nn)
     node_l10n.set_val('header_title_homepage', language, nn)
     node_l10n.set_val('presentation', language, nn)
 
-    context = db_create_context(store, ten_state.id, request['context'], language)
+    context = db_create_context(store, tid, request['context'], language)
 
     if language != u'en':
-        set_enabled_languages(store, ten_state.id, language, [language])
+        set_enabled_languages(store, tid, language, [language])
 
     request['receiver']['contexts'] = [context.id]
     request['receiver']['language'] = language
-    db_create_receiver(store, ten_state, request['receiver'], language)
+    db_create_receiver(store, tid, request['receiver'], language)
 
     admin_dict = {
         'username': u'admin',
@@ -68,7 +68,7 @@ def wizard(store, ten_state, request, language):
         'pgp_key_expiration': datetime_null()
     }
 
-    db_create_admin_user(store, ten_state, admin_dict, language)
+    db_create_admin_user(store, tid, admin_dict, language)
 
 
 class Wizard(BaseHandler):
@@ -82,7 +82,7 @@ class Wizard(BaseHandler):
                                         requests.WizardDesc)
 
         # Wizard will raise exceptions if there are any errors with the request
-        yield wizard(self.ten_state, request, self.request.language)
+        yield wizard(self.current_tenant, request, self.request.language)
         # cache must be updated in order to set wizard_done = True
         yield serialize_node(self.current_tenant, self.request.language)
         GLApiCache.invalidate(self.current_tenant)

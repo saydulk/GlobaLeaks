@@ -191,7 +191,7 @@ class MailGenerator(object):
 
 
     @transact_sync
-    def generate(self, store, ten_state):
+    def generate(self, store, tstate):
         for trigger in ['ReceiverTip', 'Comment', 'Message', 'ReceiverFile']:
             model = trigger_model_map[trigger]
 
@@ -199,7 +199,7 @@ class MailGenerator(object):
             for element in elements:
                 element.new = False
 
-                if ten_state.memc.notif.disable_receiver_notification_emails:
+                if tstate.memc.notif.disable_receiver_notification_emails:
                     continue
 
                 data = {
@@ -246,7 +246,7 @@ class NotificationSchedule(GLJob):
     monitor_interval = 3 * 60
 
     def sendmail(self, mail):
-        d = sendmail(mail['address'], mail['subject'], mail['body'])
+        d = sendmail(app_state.get_root_tenant(), mail['address'], mail['subject'], mail['body'])
         d.addCallback(delete_sent_mail, mail['id'])
         return d
 
@@ -257,8 +257,8 @@ class NotificationSchedule(GLJob):
 
     def operation(self):
         # TODO TODO TODO This will perform all of the meaningful actions in first tenant run
-        for ten_state in app_state.tenant_states.values():
-            MailGenerator().generate(ten_state)
+        for tstate in app_state.tenant_states.values():
+            MailGenerator().generate(tstate)
         # TODO TODO TODO
 
         self.spool_emails()

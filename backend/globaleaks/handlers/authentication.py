@@ -49,13 +49,13 @@ def random_login_delay():
 
 
 @transact
-def login_whistleblower(store, ten_state, receipt, using_tor2web):
+def login_whistleblower(store, tstate, receipt, using_tor2web):
     """
     login_whistleblower returns the WhistleblowerTip.id
     """
     # TODO(tid_me) auth will fail when logging into other tenants only when receipt_salt
     # is invalid. Need to check tid corresponds
-    hashed_receipt = security.hash_password(receipt, ten_state.memc.private.receipt_salt)
+    hashed_receipt = security.hash_password(receipt, tstate.memc.private.receipt_salt)
     wbtip = store.find(WhistleblowerTip,
                        WhistleblowerTip.receipt_hash == unicode(hashed_receipt)).one()
 
@@ -64,7 +64,7 @@ def login_whistleblower(store, ten_state, receipt, using_tor2web):
         GLSettings.failed_login_attempts += 1
         raise errors.InvalidAuthentication
 
-    if using_tor2web and not ten_state.memc.accept_tor2web_access['whistleblower']:
+    if using_tor2web and not tstate.memc.accept_tor2web_access['whistleblower']:
         log.err("Denied login request on Tor2web for role 'whistleblower'")
         raise errors.TorNetworkRequired
     else:
@@ -76,21 +76,21 @@ def login_whistleblower(store, ten_state, receipt, using_tor2web):
 
 
 @transact
-def login(store, ten_state, username, password, using_tor2web):
+def login(store, tstate, username, password, using_tor2web):
     """
     login returns a tuple (user_id, state, pcn)
     """
     user = store.find(User, And(User.username==username,
                                 User.state!=u'disabled',
                                 User_Tenant.user_id==User.id,
-                                User_Tenant.tenant_id==ten_state.id)).one()
+                                User_Tenant.tenant_id==tstate.id)).one()
 
     if not user or not security.check_password(password, user.salt, user.password):
         log.debug("Login: Invalid credentials")
         GLSettings.failed_login_attempts += 1
         raise errors.InvalidAuthentication
 
-    if using_tor2web and not ten_state.memc.accept_tor2web_access[user.role]:
+    if using_tor2web and not tstate.memc.accept_tor2web_access[user.role]:
         log.err("Denied login request on Tor2web for role '%s'" % user.role)
         raise errors.TorNetworkRequired
     else:
@@ -139,7 +139,7 @@ class AuthenticationHandler(BaseHandler):
         using_tor2web = self.check_tor2web()
 
         try:
-            user_id, status, role, pcn = yield login(self.ten_state, username, password, using_tor2web)
+            user_id, status, role, pcn = yield login(self.tstate, username, password, using_tor2web)
             # Revoke all other sessions for the newly authenticated user
             GLSessions.revoke_all_sessions(user_id)
         finally:
@@ -188,7 +188,7 @@ class ReceiptAuthHandler(AuthenticationHandler):
         using_tor2web = self.check_tor2web()
 
         try:
-            user_id = yield login_whistleblower(self.ten_state, receipt, using_tor2web)
+            user_id = yield login_whistleblower(self.tstate, receipt, using_tor2web)
             GLSessions.revoke_all_sessions(user_id)
         finally:
             yield self.uniform_answers_delay()

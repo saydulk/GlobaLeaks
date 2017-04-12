@@ -17,7 +17,6 @@ from globaleaks.utils.utility import datetime_now, datetime_null
 
 __all__ = ['PGPCheckSchedule']
 
-# TODO TODO TODO (tid_me)
 def db_get_expired_or_expiring_pgp_users(store):
     threshold = datetime_now() + timedelta(days=15)
 
@@ -76,11 +75,11 @@ class PGPCheckSchedule(GLJob):
         }))
 
     @transact_sync
-    def perform_pgp_validation_checks(self, store, ten_state):
+    def perform_pgp_validation_checks(self, store, tstate):
         expired_or_expiring = []
 
         for user in db_get_expired_or_expiring_pgp_users(store):
-            expired_or_expiring.append(user_serialize_user(store, user, ten_state.memc.default_language))
+            expired_or_expiring.append(user_serialize_user(store, user, tstate.memc.default_language))
 
             if user.pgp_key_expiration < datetime_now():
                 user.pgp_key_public = ''
@@ -88,7 +87,7 @@ class PGPCheckSchedule(GLJob):
                 user.pgp_key_expiration = datetime_null()
 
         if len(expired_or_expiring):
-            if not ten_state.memc.notif.disable_admin_notification_emails:
+            if not tstate.memc.notif.disable_admin_notification_emails:
                 self.prepare_admin_pgp_alerts(store, expired_or_expiring)
 
             for user_desc in expired_or_expiring:
@@ -96,5 +95,5 @@ class PGPCheckSchedule(GLJob):
 
     def operation(self):
         # TODO TIDME
-        for ten_state in app_state.tenant_states.values():
-            self.perform_pgp_validation_checks(ten_state)
+        for tstate in app_state.tenant_states.values():
+            self.perform_pgp_validation_checks(tstate)

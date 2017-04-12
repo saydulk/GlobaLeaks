@@ -6,6 +6,47 @@ from globaleaks import models
 from globaleaks.orm import transact, transact_sync
 from globaleaks.settings import GLSettings
 
+class TenantState(object):
+    def __init__(self, tid):
+        #TODO self.api_cache = GLApiCache()
+        self.id = tid
+        self.memc = ObjectDict({})
+
+    def db_refresh(self, store):
+        node_ro = ObjectDict(models.config.NodeFactory(store, self.id).admin_export())
+
+        self.memc = node_ro
+
+        self.memc.accept_tor2web_access = {
+            'admin': node_ro.tor2web_admin,
+            'custodian': node_ro.tor2web_custodian,
+            'whistleblower': node_ro.tor2web_whistleblower,
+            'receiver': node_ro.tor2web_receiver,
+            'unauth': node_ro.tor2web_unauth
+        }
+
+        if node_ro['wizard_done']:
+            enabled_langs = models.l10n.EnabledLanguage.list(store, self.id)
+        else:
+            enabled_langs = LANGUAGES_SUPPORTED_CODES
+
+        self.memc.languages_enabled = enabled_langs
+
+        notif_fact = models.config.NotificationFactory(store, self.id)
+        notif_ro = ObjectDict(notif_fact.admin_export())
+
+        self.memc.notif = notif_ro
+
+        if GLSettings.developer_name:
+            self.memc.notif.source_name = GLSettings.developer_name
+
+        self.memc.private = ObjectDict(models.config.PrivateFactory(store, self.id).mem_copy_export())
+
+    @transact
+    def refresh(self, store):
+        return db_refresh(self, store)
+
+
 # TODO Subclass from dictionary
 class State(object):
     def __init__(self):
@@ -98,46 +139,6 @@ class State(object):
 
     def get_root_tenant(self):
         return self.tenant_states[self.root_id]
-
-class TenantState(object):
-    def __init__(self, tid):
-        #TODO self.api_cache = GLApiCache()
-        self.id = tid
-        self.memc = ObjectDict({})
-
-    def db_refresh(self, store):
-        node_ro = ObjectDict(models.config.NodeFactory(store, self.id).admin_export())
-
-        self.memc = node_ro
-
-        self.memc.accept_tor2web_access = {
-            'admin': node_ro.tor2web_admin,
-            'custodian': node_ro.tor2web_custodian,
-            'whistleblower': node_ro.tor2web_whistleblower,
-            'receiver': node_ro.tor2web_receiver,
-            'unauth': node_ro.tor2web_unauth
-        }
-
-        if node_ro['wizard_done']:
-            enabled_langs = models.l10n.EnabledLanguage.list(store, self.id)
-        else:
-            enabled_langs = LANGUAGES_SUPPORTED_CODES
-
-        self.memc.languages_enabled = enabled_langs
-
-        notif_fact = models.config.NotificationFactory(store, self.id)
-        notif_ro = ObjectDict(notif_fact.admin_export())
-
-        self.memc.notif = notif_ro
-
-        if GLSettings.developer_name:
-            self.memc.notif.source_name = GLSettings.developer_name
-
-        self.memc.private = ObjectDict(models.config.PrivateFactory(store, self.id).mem_copy_export())
-
-    @transact
-    def refresh(self, store):
-        return db_refresh(self, store)
 
 
 app_state = State()

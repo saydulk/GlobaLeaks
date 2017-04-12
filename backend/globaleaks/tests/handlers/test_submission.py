@@ -129,11 +129,12 @@ class TestSubmissionEncryptedScenarioOneKeyExpired(TestSubmissionEncryptedScenar
 class TestSubmissionEncryptedScenarioOneKeyMissing(TestSubmissionEncryptedScenario):
     encryption_scenario = 'ENCRYPTED_WITH_ONE_KEY_MISSING'
 
-    files_created = 3
+    files_created = 6
 
     counters_check = {
         'encrypted': 3,
-        'reference': 0
+        'reference': 0,
+        'nokey': 0
     }
 
 

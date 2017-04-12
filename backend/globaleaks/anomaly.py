@@ -240,7 +240,7 @@ class AlarmClass(object):
 
         @transact
         def _generate_admin_alert_mail(store, alert):
-            for user_desc in db_get_admin_users(store, app_state.get_root_tenant()):
+            for user_desc in db_get_admin_users(store, app_state.root_id):
                 user_language = user_desc['language']
 
                 data = {
