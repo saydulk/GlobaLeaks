@@ -17,6 +17,7 @@ from globaleaks.orm import transact
 from globaleaks.rest import requests
 from globaleaks.settings import GLSettings
 from globaleaks.utils.utility import log
+from globaleaks.constants import ROOT_TENANT
 
 from globaleaks.state import app_state
 
@@ -106,9 +107,7 @@ class TenantInstance(BaseHandler):
         Delete the specified tenant.
         """
         tenant_id = int(tenant_id)
-        if tenant_id == self.current_tenant:
+        if tenant_id == self.current_tenant or tenant_id == ROOT_TENANT:
             raise Exception('System will not delete the current tenant.')
 
         yield Tenant.delete(id=tenant_id)
-
-        yield app_state.refresh()

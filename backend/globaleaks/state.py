@@ -81,7 +81,7 @@ class AppState(object):
 
     def db_refresh(self, store):
         tenants = store.find(models.Tenant)
-        self.tenant_label_id_map = {t.label: t.id for t in tenants}
+        self.tenant_hostname_id_map = {t.https_hostname: t.id for t in tenants}
         tenants_ids = [t.id for t in tenants]
 
         to_remove = set(self.tenant_states.keys()) - set(tenants_ids)
@@ -97,6 +97,7 @@ class AppState(object):
 
         self.memc = self.tenant_states[self.root_id].memc
 
+        # TODO reenable excep list generation
         #self.db_refresh_exception_delivery_list(store)
 
     def db_refresh_exception_delivery_list(self, store):

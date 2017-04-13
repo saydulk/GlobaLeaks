@@ -15,7 +15,7 @@ angular.module('GLClient')
     });
   }
 }])
-.controller('TenantEditorCtrl', ['$scope', 'AdminTenantResource', function($scope, AdminTenantResource) {
+.controller('TenantEditorCtrl', ['$scope', '$location', 'AdminTenantResource', function($scope, $location, AdminTenantResource) {
   $scope.delete_tenant = function(tenant) {
     AdminTenantResource.delete({
       id: tenant.id
@@ -24,4 +24,9 @@ angular.module('GLClient')
       $scope.admin.tenants.splice(idx, 1);
     });
   };
+
+  $scope.isCurrentTenant = function(tenant) {
+    // TODO Decide whether to allow port or not.
+    return $location.host() == tenant.https_hostname || location.host == tenant.https_hostname;
+  }
 }]);
