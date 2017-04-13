@@ -4,7 +4,7 @@
 #
 # Implementation of classes handling the HTTP request to /node, public
 # exposed API.
-
+from storm.expr import In
 from twisted.internet.defer import inlineCallbacks
 
 from globaleaks import models, LANGUAGES_SUPPORTED, LANGUAGES_SUPPORTED_CODES
@@ -152,7 +152,51 @@ def serialize_field_attr(attr, language):
     return ret_dict
 
 
-def serialize_field(store, field, language):
+def db_prepare_fields_serialization(store, fields):
+    ret_fields = {}
+    ret_attrs = {}
+    ret_options = {}
+
+    fields_ids = [f.id for f in fields]
+    for f in fields:
+        if f.template_id is not None:
+            fields_ids.append(f.template_id)
+
+    for f in fields_ids:
+         ret_fields[f] = []
+         ret_attrs[f] = []
+         ret_options[f] = []
+
+    while(len(fields_ids)):
+        fs = store.find(models.Field, In(models.Field.fieldgroup_id, fields_ids))
+
+        tmp = []
+        for f in fs:
+            ret_fields[f.fieldgroup_id].append(f)
+            tmp.append(f.id)
+            if f.template_id is not None:
+                fields_ids.append(f.template_id)
+                tmp.append(t.template_id)
+
+        del fields_ids[:]
+        for t in tmp:
+            ret_fields[t] = []
+            ret_attrs[t] = []
+            ret_options[t] = []
+            fields_ids.append(t)
+
+    objs = store.find(models.FieldAttr, In(models.FieldAttr.field_id, ret_fields.keys()))
+    for obj in objs:
+       ret_attrs[obj.field_id].append(obj)
+
+    objs = store.find(models.FieldOption, In(models.FieldOption.field_id, ret_fields.keys()))
+    for obj in objs:
+       ret_options[obj.field_id].append(obj)
+
+    return ret_fields, ret_attrs, ret_options
+
+
+def serialize_field(store, field, fields, attrs, options, language):
     """
     Serialize a field, localizing its content depending on the language.
 
@@ -160,18 +204,10 @@ def serialize_field(store, field, language):
     :param language: the language in which to localize data
     :return: a serialization of the object
     """
-    # naif likes if we add reference links
-    # this code is inspired by:
-    #  - https://www.youtube.com/watch?v=KtNsUgKgj9g
-
     if field.template_id:
         f_to_serialize = field.template
     else:
         f_to_serialize = field
-
-    attrs = {}
-    for attr in store.find(models.FieldAttr, field_id=f_to_serialize.id):
-        attrs[attr.name] = serialize_field_attr(attr, language)
 
     triggered_by_options = [{
         'field': trigger.field_id,
@@ -191,14 +227,14 @@ def serialize_field(store, field, language):
         'required': field.required,
         'preview': field.preview,
         'stats_enabled': field.stats_enabled,
-        'attrs': attrs,
         'x': field.x,
         'y': field.y,
         'width': field.width,
         'triggered_by_score': field.triggered_by_score,
         'triggered_by_options': triggered_by_options,
-        'options': [serialize_field_option(o, language) for o in f_to_serialize.options],
-        'children': [serialize_field(store, f, language) for f in f_to_serialize.children]
+        'attrs': {a.name: serialize_field_attr(a, language) for a in attrs[f_to_serialize.id]},
+        'options': [serialize_field_option(o, language) for o in options[f_to_serialize.id]],
+        'children': [serialize_field(store, f, fields, attrs, options, language) for f in fields[f_to_serialize.id]]
     }
 
     return get_localized_values(ret_dict, f_to_serialize, field.localized_keys, language)
@@ -217,13 +253,15 @@ def serialize_step(store, step, language):
         'option': trigger.id
     } for trigger in step.triggered_by_options]
 
+    fields, attrs, options = db_prepare_fields_serialization(store, step.children)
+
     ret_dict = {
         'id': step.id,
         'questionnaire_id': step.questionnaire_id,
         'presentation_order': step.presentation_order,
         'triggered_by_score': step.triggered_by_score,
         'triggered_by_options': triggered_by_options,
-        'children': [serialize_field(store, f, language) for f in step.children]
+        'children': [serialize_field(store, f, fields, attrs, options, language) for f in step.children]
     }
 
     return get_localized_values(ret_dict, step, step.localized_keys, language)

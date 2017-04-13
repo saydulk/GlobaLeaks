@@ -12,7 +12,7 @@ from twisted.internet.defer import inlineCallbacks
 from globaleaks import models
 from globaleaks.constants import ROOT_TENANT
 from globaleaks.handlers.base import BaseHandler
-from globaleaks.handlers.public import serialize_field
+from globaleaks.handlers.public import serialize_field, db_prepare_fields_serialization
 from globaleaks.orm import transact
 from globaleaks.rest import errors, requests
 from globaleaks.rest.apicache import GLApiCache
@@ -161,7 +161,9 @@ def create_field(store, tid, field_dict, language, request_type=None):
     """
     field = db_create_field(store, tid, field_dict, language if request_type != 'import' else None)
 
-    return serialize_field(store, field, language)
+    fields, attrs, options = db_prepare_fields_serialization(store, [field])
+
+    return serialize_field(store, field, fields, attrs, options, language)
 
 
 def db_update_field(store, tid, field_id, field_dict, language):
@@ -224,7 +226,9 @@ def update_field(store, tid, field_id, field, language, request_type=None):
     """
     field = db_update_field(store, tid, field_id, field, language if request_type != 'import' else None)
 
-    return serialize_field(store, field, language)
+    fields, attrs, options = db_prepare_fields_serialization(store, [field])
+
+    return serialize_field(store, field, fields, attrs, options, language)
 
 
 @transact
@@ -240,7 +244,9 @@ def get_field(store, tid, field_id, language, request_type=None):
     """
     field = models.Field.db_get(store, id=field_id)
 
-    return serialize_field(store, field, language if request_type != 'export' else None)
+    fields, attrs, options = db_prepare_fields_serialization(store, [field])
+
+    return serialize_field(store, field, fields, attrs, options, language if request_type != 'export' else None)
 
 
 @transact
@@ -301,7 +307,9 @@ def get_fieldtemplate_list(store, tid, language, request_type=None):
 
     templates = store.find(models.Field, step_id=None, fieldgroup_id=None)
 
-    return [serialize_field(store, t, language) for t in templates]
+    fields, attrs, options = db_prepare_fields_serialization(store, templates)
+
+    return [serialize_field(store, t, fields, attrs, options, language) for t in templates]
 
 
 class FieldTemplatesCollection(BaseHandler):
