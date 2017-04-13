@@ -24,8 +24,8 @@ from globaleaks.event import track_handler
 from globaleaks.rest import errors, requests
 from globaleaks.security import GLSecureTemporaryFile, directory_traversal_check, generateRandomKey
 from globaleaks.settings import GLSettings
-from globaleaks.state import app_state
 from globaleaks.utils.mailutils import mail_exception_handler, send_exception_email
+from globaleaks.utils.objectdict import ObjectDict
 from globaleaks.utils.tempdict import TempDict
 from globaleaks.utils.utility import log, deferred_sleep, parse_accept_language_header
 
@@ -180,7 +180,7 @@ class BaseHandler(RequestHandler):
     filehandler = False
 
     def initialize(self):
-        self.app_state = app_state
+        self.app_state = self.settings.app_state
 
     @staticmethod
     def authenticated(role):
@@ -510,6 +510,14 @@ class BaseHandler(RequestHandler):
 
         self.request.language = language
         self.set_header("Content-Language", language)
+
+        self.req_state = ObjectDict({
+          'tid': tid,
+          'user': self.current_user,
+          'language': language,
+          'app_state': self.settings.app_state,
+          'ten_state': self.tstate
+        })
 
     def redirect_https(self):
         in_url = self.request.full_url()

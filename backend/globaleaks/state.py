@@ -1,16 +1,17 @@
 from globaleaks.utils.tor_exit_set import TorExitSet
-from globaleaks import LANGUAGES_SUPPORTED_CODES
-from globaleaks import models
+from globaleaks import LANGUAGES_SUPPORTED_CODES, models
+from globaleaks.constants import ROOT_TENANT
 from globaleaks.orm import transact, transact_sync
 from globaleaks.settings import GLSettings
 from globaleaks.utils.objectdict import ObjectDict
 
 
 class TenantState(object):
-    def __init__(self, tid):
-        #TODO self.api_cache = GLApiCache()
+    def __init__(self, store, tid):
         self.id = tid
-        self.memc = ObjectDict({})
+        self.memc = ObjectDict()
+
+        self.db_refresh(store)
 
     def db_refresh(self, store):
         node_ro = ObjectDict(models.config.NodeFactory(store, self.id).admin_export())
@@ -47,8 +48,7 @@ class TenantState(object):
         return db_refresh(self, store)
 
 
-# TODO Subclass from dictionary
-class State(object):
+class AppState(object):
     def __init__(self):
         self.process_supervisor = None
 
@@ -56,7 +56,7 @@ class State(object):
         self.jobs = []
         self.jobs_monitor = None
 
-        self.memc = ObjectDict({
+        self.defaults = ObjectDict({
             'maximum_namesize': 128,
             'maximum_textsize': 4096,
             'maximum_filesize': 30,
@@ -74,55 +74,43 @@ class State(object):
             'anonymize_outgoing_connections': True,
         })
 
+        self.root_id = ROOT_TENANT
         self.tenant_states = dict()
 
-
     def db_refresh(self, store):
-        # TODO Determine first tenant NOTE use ringobingo
-        self.root_id = store.find(models.Tenant, id=1).order_by(models.Tenant.id).one().id
+        tenants = store.find(models.Tenant)
+        self.tenant_label_id_map = {t.label: t.id for t in tenants}
+        tenants_ids = [t.id for t in tenants]
 
-        # Initialize tenant state or refresh existing tenant
-        db_tenants = list(store.find(models.Tenant))
-        self.tenant_label_id_map = {t.label: t.id for t in db_tenants}
+        to_remove = set(self.tenant_states.keys()) - set(tenants_ids)
 
-        for db_tenant in db_tenants:
-            t_state = self.tenant_states.get(db_tenant.id)
-            if t_state is None:
-                t_state = TenantState(db_tenant.id)
-                self.tenant_states[db_tenant.id] = t_state
+        for k in to_remove:
+            del self.tenant_states[k]
 
-            t_state.db_refresh(store)
+        for tid in tenants_ids:
+            if tid not in self.tenant_states:
+                self.tenant_states[tid] = TenantState(store, tid)
+            else:
+                self.tenant_states[tid].db_refresh(store)
 
-        # Check for t_state objects that are no longer needed
-        cur_ten_ids = [db_t.id for db_t in db_tenants]
-        tids_to_remove = filter(lambda tid: not tid in cur_ten_ids, self.tenant_states.keys())
-        for tid in tids_to_remove:
-            self.tenant_states.pop(tid)
+        self.memc = self.tenant_states[self.root_id].memc
 
-        self.db_refresh_root_memc(store)
-
-    def db_refresh_root_memc(self, store):
-        # Initialize first tenant memory_copy
-        ts = self.tenant_states[self.root_id]
-        self.memc = ts.memc
-
-        self.db_refresh_exception_delivery_list(store)
+        #self.db_refresh_exception_delivery_list(store)
 
     def db_refresh_exception_delivery_list(self, store):
         """
         Constructs a list of (email_addr, public_key) pairs that will receive errors from the platform.
         If the email_addr is empty, drop the tuple from the list.
         """
-        notif_fact = models.config.NotificationFactory(store, self.root_id)
+        notif_fact = models.config.NotificationFactory(store, ROOT_TENANT)
         error_addr = notif_fact.get_val('exception_email_address')
         error_pk = notif_fact.get_val('exception_email_pgp_key_public')
 
         lst = [(error_addr, error_pk)]
 
-        # TODO Only send exception notification mails. . . root_id is used here.
-        results = store.find(models.User, models.User.role ==unicode('admin'),
-                                   models.User.id == models.User_Tenant.user_id,
-                                   models.Tenant.id == self.root_id,
+        results = store.find(models.User, models.User.role == unicode('admin'),
+                                          models.User.id == models.User_Tenant.user_id,
+                                          models.Tenant.id == ROOT_TENANT
                             ).values(models.User.mail_address, models.User.pgp_key_public)
 
         lst.extend([(mail, pub_key) for (mail, pub_key) in results])
@@ -138,7 +126,7 @@ class State(object):
         return self.db_refresh(store)
 
     def get_root_tenant(self):
-        return self.tenant_states[self.root_id]
+        return self.tenant_states[ROOT_TENANT]
 
 
-app_state = State()
+app_state = AppState()

@@ -88,7 +88,7 @@ class GLService(service.Service):
     def _start(self):
         GLSettings.orm_tp.start()
         reactor.addSystemEventTrigger('after', 'shutdown', GLSettings.orm_tp.stop)
-        api_factory = api.get_api_factory()
+        api_factory = api.get_api_factory(app_state)
 
         for sock in GLSettings.http_socks:
             listen_tcp_on_sock(reactor, sock.fileno(), api_factory)

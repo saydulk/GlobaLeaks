@@ -158,9 +158,10 @@ class Application(web.Application):
         return web.Application.__call__(self, request)
 
 
-def get_api_factory():
+def get_api_factory(app_state):
     settings = dict(cookie_secret=randbits(128),
                     debug=GLSettings.log_requests_responses,
-                    gzip=False)
+                    gzip=False,
+                    app_state=app_state)
 
     return Application(spec, **settings)

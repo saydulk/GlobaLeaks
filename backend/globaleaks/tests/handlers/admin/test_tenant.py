@@ -3,8 +3,8 @@ from twisted.internet.defer import inlineCallbacks
 from globaleaks.db.appdata import load_appdata
 from globaleaks.state import app_state
 from globaleaks.handlers.admin import tenant
-from globaleaks.handlers.admin.tenant import db_create_tenant
-from globaleaks.state import State
+from globaleaks.handlers.admin.tenant import db_create_tenant 
+from globaleaks.state import AppState
 from globaleaks.models.config import NodeFactory
 from globaleaks.orm import transact
 
@@ -12,7 +12,6 @@ from globaleaks.tests import helpers
 
 
 class TestStateChanges(helpers.TestGL):
-
     @inlineCallbacks
     def test_get(self):
         for i in range(3):
@@ -28,11 +27,7 @@ class TestStateChanges(helpers.TestGL):
 
     @transact
     def db_test_init_and_refresh_app_state(self, store):
-        app_state = State()
-
-        self.assertRaises(AttributeError, lambda x:x.disable_submissions, app_state.memc)
-        self.assertEqual(len(app_state.tenant_states), 0)
-
+        app_state = AppState()
         app_state.db_refresh(store)
 
         self.assertEqual(len(app_state.tenant_states), 1)

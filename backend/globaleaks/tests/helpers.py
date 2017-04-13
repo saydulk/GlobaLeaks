@@ -746,7 +746,7 @@ class TestHandler(TestGLWithPopulatedDB):
         else:
             fake_files = {'file': [attached_file]} # Yes this is ugly, but it's the format
 
-        application = Application([])
+        application = Application([], app_state=app_state)
 
         tr = proto_helpers.StringTransport()
         connection = httpserver.HTTPConnection()
