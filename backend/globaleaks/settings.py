@@ -14,10 +14,10 @@ import sys
 from distutils import dir_util # pylint: disable=no-name-in-module
 from optparse import OptionParser
 
-from cyclone.util import ObjectDict as OD
 from twisted.python.threadpool import ThreadPool
 
 from globaleaks import __version__, DATABASE_VERSION
+from globaleaks.utils.objectdict import ObjectDict
 from globaleaks.utils.singleton import Singleton
 from globaleaks.utils.utility import datetime_now, log
 from globaleaks.utils.tor_exit_set import TorExitSet
@@ -192,7 +192,7 @@ class GLSettingsClass(object):
 
         # TODO holds global state until GLSettings is inverted and this
         # state managed as an object by the application
-        self.state = OD()
+        self.state = ObjectDict()
         self.state.process_supervisor = None
         self.state.tor_exit_set = TorExitSet()
 

@@ -1,10 +1,10 @@
-from cyclone.util import ObjectDict
-
 from globaleaks.utils.tor_exit_set import TorExitSet
 from globaleaks import LANGUAGES_SUPPORTED_CODES
 from globaleaks import models
 from globaleaks.orm import transact, transact_sync
 from globaleaks.settings import GLSettings
+from globaleaks.utils.objectdict import ObjectDict
+
 
 class TenantState(object):
     def __init__(self, tid):
