@@ -157,7 +157,6 @@ class CleaningSchedule(GLJob):
 
     def operation(self):
         for tid, tstate in app_state.tenant_states.items():
-            print tstate
             self.clean_expired_wbtips(tid, tstate)
 
         self.clean_expired_itips()
