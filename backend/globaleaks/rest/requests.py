@@ -20,8 +20,11 @@ email_regexp                      = r'^(([\w+-\.]){0,100}[\w]{1,100}@([\w+-\.]){
 email_regexp_or_empty             = r'^(([\w+-\.]){0,100}[\w]{1,100}@([\w+-\.]){0,100}[\w]{1,100})$|^$'
 onionservice_regexp               = r'^[0-9a-z]{16}\.onion$'
 onionservice_regexp_or_empty      = r'^[0-9a-z]{16}\.onion$|^$'
-hostname_regexp                   = r'^[0-9a-z\-\.]+$'
-hostname_regexp_or_empty          = r'^[0-9a-z\-\.]+$|^$'
+
+# RFC 1034 3.1 specifies an upper limit on domain names
+hostname_regexp                   = r'^[0-9a-z\-\.]{1,255}$'
+hostname_regexp_or_empty          = r'^[0-9a-z\-\.]{1,255}$|^$'
+hostname_with_port_regexp         = r'^[0-9a-z\-\.]{1,255}(:[0-9]{1,5})?$'
 https_url_regexp                  = r'^https://([0-9a-z\-]+)\.(.*)$'
 https_url_regexp_or_empty         = r'^https://([0-9a-z\-]+)\.(.*)$|^$'
 landing_page_regexp               = r'^(homepage|submissionpage)$'
@@ -396,7 +399,7 @@ AdminCSRFileDesc = {
 
 AdminTenantDesc = {
     'label': unicode,
-    'https_hostname': hostname_regexp,
+    'https_hostname': hostname_with_port_regexp,
 }
 
 AdminShortURLDesc = {

@@ -5,7 +5,9 @@ angular.module('GLClient')
 
   $scope.add_tenant = function() {
     var new_tenant = new $scope.admin_utils.new_tenant();
+    // TODO use a resource provider to initialize to remove this copy
     new_tenant.label = $scope.new_tenant.label;
+    new_tenant.https_hostname = $scope.new_tenant.https_hostname;
 
     new_tenant.$save(function(new_tenant){
       $scope.admin.tenants.push(new_tenant);

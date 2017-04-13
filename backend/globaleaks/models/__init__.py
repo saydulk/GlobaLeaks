@@ -20,8 +20,8 @@ class Tenant(Model):
     """
     id = Int(primary=True)
     label = Unicode(validator=shorttext_v)
-    https_hostname = Unicode(validator=shorttext_v, default=u'')
-    onion_hostname = Unicode(validator=shorttext_v, default=u'')
+    https_hostname = Unicode(validator=shorttext_v)
+    onion_hostname = Unicode(validator=shorttext_v)
 
     unicode_keys = ['label', 'https_hostname']
 

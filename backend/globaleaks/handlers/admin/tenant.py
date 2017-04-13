@@ -41,6 +41,10 @@ def db_create_tenant(store, desc, appdata):
 
     EnabledLanguage.enable_language(store, tenant.id, u'en', appdata)
 
+    # TODO talk with tor_ephem_hs to initialize an ephem HS
+    #if GLSettings.devel_mode:
+    #  tenant.onion_address = 'do something crazy!!!!'
+
     for t in [(u'logo', 'data/logo.png'),
               (u'favicon', 'data/favicon.ico')]:
         with open(os.path.join(GLSettings.client_path, t[1]), 'r') as file:
