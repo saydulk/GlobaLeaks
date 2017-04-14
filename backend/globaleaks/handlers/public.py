@@ -153,9 +153,12 @@ def serialize_field_attr(attr, language):
 
 
 def db_prepare_fields_serialization(store, fields):
-    ret_fields = {}
-    ret_attrs = {}
-    ret_options = {}
+    ret = {
+        'fields': {},
+        'attrs': {},
+        'options': {},
+        'triggers': {}
+    }
 
     fields_ids = [f.id for f in fields]
     for f in fields:
@@ -163,40 +166,46 @@ def db_prepare_fields_serialization(store, fields):
             fields_ids.append(f.template_id)
 
     for f in fields_ids:
-         ret_fields[f] = []
-         ret_attrs[f] = []
-         ret_options[f] = []
+         ret['fields'][f] = []
+         ret['attrs'][f] = []
+         ret['options'][f] = []
+         ret['triggers'][f] = []
 
     while(len(fields_ids)):
         fs = store.find(models.Field, In(models.Field.fieldgroup_id, fields_ids))
 
         tmp = []
         for f in fs:
-            ret_fields[f.fieldgroup_id].append(f)
+            ret['fields'][f.fieldgroup_id].append(f)
             tmp.append(f.id)
             if f.template_id is not None:
                 fields_ids.append(f.template_id)
                 tmp.append(t.template_id)
 
         del fields_ids[:]
-        for t in tmp:
-            ret_fields[t] = []
-            ret_attrs[t] = []
-            ret_options[t] = []
-            fields_ids.append(t)
+        for f in tmp:
+            ret['fields'][f] = []
+            ret['attrs'][f] = []
+            ret['options'][f] = []
+            ret['triggers'][f] = []
+            fields_ids.append(f)
 
-    objs = store.find(models.FieldAttr, In(models.FieldAttr.field_id, ret_fields.keys()))
+    objs = store.find(models.FieldAttr, In(models.FieldAttr.field_id, ret['fields'].keys()))
     for obj in objs:
-       ret_attrs[obj.field_id].append(obj)
+       ret['attrs'][obj.field_id].append(obj)
 
-    objs = store.find(models.FieldOption, In(models.FieldOption.field_id, ret_fields.keys()))
+    objs = store.find(models.FieldOption, In(models.FieldOption.field_id, ret['fields'].keys()))
     for obj in objs:
-       ret_options[obj.field_id].append(obj)
+       ret['options'][obj.field_id].append(obj)
 
-    return ret_fields, ret_attrs, ret_options
+    objs = store.find(models.FieldOption, In(models.FieldOption.trigger_field, ret['fields'].keys()))
+    for obj in objs:
+       ret['triggers'][obj.field_id].append(obj)
+
+    return ret
 
 
-def serialize_field(store, field, fields, attrs, options, language):
+def serialize_field(store, field, data, language):
     """
     Serialize a field, localizing its content depending on the language.
 
@@ -212,7 +221,7 @@ def serialize_field(store, field, fields, attrs, options, language):
     triggered_by_options = [{
         'field': trigger.field_id,
         'option': trigger.id
-    } for trigger in field.triggered_by_options]
+    } for trigger in data['triggers'][field.id]]
 
     ret_dict = {
         'id': field.id,
@@ -232,9 +241,9 @@ def serialize_field(store, field, fields, attrs, options, language):
         'width': field.width,
         'triggered_by_score': field.triggered_by_score,
         'triggered_by_options': triggered_by_options,
-        'attrs': {a.name: serialize_field_attr(a, language) for a in attrs[f_to_serialize.id]},
-        'options': [serialize_field_option(o, language) for o in options[f_to_serialize.id]],
-        'children': [serialize_field(store, f, fields, attrs, options, language) for f in fields[f_to_serialize.id]]
+        'attrs': {a.name: serialize_field_attr(a, language) for a in data['attrs'][f_to_serialize.id]},
+        'options': [serialize_field_option(o, language) for o in data['options'][f_to_serialize.id]],
+        'children': [serialize_field(store, f, data, language) for f in data['fields'][f_to_serialize.id]]
     }
 
     return get_localized_values(ret_dict, f_to_serialize, field.localized_keys, language)
@@ -253,7 +262,7 @@ def serialize_step(store, step, language):
         'option': trigger.id
     } for trigger in step.triggered_by_options]
 
-    fields, attrs, options = db_prepare_fields_serialization(store, step.children)
+    data = db_prepare_fields_serialization(store, step.children)
 
     ret_dict = {
         'id': step.id,
@@ -261,7 +270,7 @@ def serialize_step(store, step, language):
         'presentation_order': step.presentation_order,
         'triggered_by_score': step.triggered_by_score,
         'triggered_by_options': triggered_by_options,
-        'children': [serialize_field(store, f, fields, attrs, options, language) for f in step.children]
+        'children': [serialize_field(store, f, data, language) for f in step.children]
     }
 
     return get_localized_values(ret_dict, step, step.localized_keys, language)
