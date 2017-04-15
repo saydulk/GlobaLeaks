@@ -7,6 +7,7 @@
 from twisted.internet.defer import inlineCallbacks
 
 from globaleaks import models, security
+from globaleaks.handlers.admin.context import db_associate_receiver_contexts
 from globaleaks.handlers.base import BaseHandler
 from globaleaks.handlers.user import apply_pgp_options, user_serialize_user
 from globaleaks.orm import transact
@@ -71,6 +72,8 @@ def db_create_receiver(store, tid, request, language):
     receiver.id = user.id
 
     store.add(receiver)
+
+    db_associate_receiver_contexts(store, receiver, request['contexts'])
 
     log.debug("Created new receiver")
 

@@ -7,7 +7,6 @@
 from twisted.internet.defer import inlineCallbacks
 
 from globaleaks import models
-from globaleaks.handlers.admin.context import db_associate_receiver_contexts
 from globaleaks.handlers.admin.user import db_create_receiver
 from globaleaks.handlers.base import BaseHandler
 from globaleaks.handlers.user import user_serialize_user
@@ -66,8 +65,6 @@ def get_receiver_list(store, tid, language):
 def create_receiver(store, tid, request, language):
     request['tip_expiration_threshold'] = app_state.get_root_tenant().memc.notif.tip_expiration_threshold
     receiver = db_create_receiver(store, tid, request, language)
-
-    db_associate_receiver_contexts(store, receiver, request['contexts'])
 
     return admin_serialize_receiver(store, receiver, language)
 
