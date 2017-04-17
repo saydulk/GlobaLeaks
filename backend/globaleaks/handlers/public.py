@@ -289,7 +289,6 @@ def serialize_receiver(store, receiver, language):
     ret_dict = {
         'id': receiver.id,
         'name': receiver.user.public_name,
-        'username': receiver.user.username,
         'state': receiver.user.state,
         'configuration': receiver.configuration,
         'presentation_order': receiver.presentation_order,
@@ -324,13 +323,7 @@ def db_get_public_receiver_list(store, tstate, language):
                            models.Receiver.id == models.User_Tenant.user_id,
                            models.User_Tenant.tenant_id == tstate.id)
 
-    ret = [serialize_receiver(store, receiver, language) for receiver in receivers]
-
-    if tstate.memc.simplified_login:
-        for r in ret:
-            r['username'] = ''
-
-    return ret
+    return [serialize_receiver(store, receiver, language) for receiver in receivers]
 
 
 @transact

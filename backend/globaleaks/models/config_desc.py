@@ -126,8 +126,6 @@ GLConfig = {
 
         'enable_experimental_features': Bool(default=False),
 
-        'simplified_login': Bool(default=True),
-
         'enable_custom_privacy_badge': Bool(default=False),
 
         'landing_page': Unicode(default=u'homepage'),

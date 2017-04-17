@@ -9,7 +9,7 @@ GLClient.controller('WizardCtrl', ['$scope', '$location', '$route', '$http', 'Au
     $scope.finish = function() {
       if (!finished) {
         $http.post('wizard', $scope.wizard).then(function() {
-          Authentication.login('admin', $scope.wizard.admin.password, function() {
+          Authentication.login($scope.wizard.admin.mail_address, $scope.wizard.admin.password, function() {
             $scope.reload("/admin/landing");
           });
         });

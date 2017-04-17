@@ -48,7 +48,6 @@ def user_serialize_user(store, user, language):
     """
     ret_dict = {
         'id': user.id,
-        'username': user.username,
         'password': '',
         'old_password': u'',
         'salt': '',

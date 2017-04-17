@@ -80,7 +80,7 @@ def login(store, tstate, username, password, using_tor2web):
     """
     login returns a tuple (user_id, state, pcn)
     """
-    user = store.find(User, And(User.username==username,
+    user = store.find(User, And(User.mail_address==unicode(username),
                                 User.state!=u'disabled',
                                 User_Tenant.user_id==User.id,
                                 User_Tenant.tenant_id==tstate.id)).one()

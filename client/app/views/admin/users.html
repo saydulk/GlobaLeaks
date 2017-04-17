@@ -15,7 +15,7 @@
             </select>
           </div>
         </div>
-        <div class="form-group" data-ng-if="new_user.role !== 'receiver' || !node.simplified_login">
+        <div class="form-group" data-ng-if="new_user.role !== 'receiver'">
           <label data-translate>Username</label>
           <span class="text-danger" uib-popover="{{'This field is mandatory' | translate}}" popover-placement="right" popover-trigger="'mouseenter'">*</span>
           <div data-ng-class="{'has-error': newUser.username.$error.required}">
@@ -96,11 +96,6 @@
                 <div class="col-md-12">
                   <div class="form-group">
                     <div image-upload image-upload-model="user" image-upload-model-attr="picture" image-upload-url="{{'admin/users/' + user.id + '/img'}}"></div>
-                  </div>
-                  <div class="form-group" data-ng-if="user.role !== 'receiver' || !node.simplified_login">
-                    <label data-translate>Username</label>
-                    <input class="form-control" name="username" maxlength="{{node.maximum_namesize}}" data-ng-model="user.username" type="text" required />
-                    <div class="text-danger" data-ng-show="editUser.name.$error.required" data-translate>This field is mandatory</div>
                   </div>
                   <div class="form-group">
                     <label data-translate>Name</label>

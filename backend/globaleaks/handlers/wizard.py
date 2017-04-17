@@ -51,7 +51,6 @@ def wizard(store, tid, request, language):
     db_create_receiver(store, tid, request['receiver'], language)
 
     admin_dict = {
-        'username': u'admin',
         'password': request['admin']['password'],
         'role': u'admin',
         'state': u'enabled',

@@ -44,7 +44,6 @@ CREATE TABLE configl10n (
 CREATE TABLE user (
     id TEXT NOT NULL,
     creation_date TEXT NOT NULL,
-    username TEXT NOT NULL,
     password TEXT NOT NULL,
     salt TEXT NOT NULL,
     deletable INTEGER NOT NULL,

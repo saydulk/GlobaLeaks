@@ -32,8 +32,6 @@ class User(ModelWithID):
     """
     creation_date = DateTime(default_factory=datetime_now)
 
-    username = Unicode(validator=shorttext_v)
-
     password = Unicode()
     salt = Unicode()
 
@@ -59,7 +57,7 @@ class User(ModelWithID):
     pgp_key_expiration = DateTime(default_factory=datetime_null)
     # END of PGP key fields
 
-    unicode_keys = ['username', 'role', 'state',
+    unicode_keys = ['role', 'state',
                     'language', 'mail_address', 'name',
                     'public_name', 'pgp_key_fingerprint',
                     'pgp_key_public']

@@ -108,7 +108,6 @@ SubmissionDesc = {
 }
 
 UserUserDesc = {
-    'username': unicode,
     'name': unicode,
     'description': unicode,
     'public_name': unicode,
@@ -129,7 +128,6 @@ UserUserDesc = {
 AdminUserDesc = UserUserDesc # currently the same
 
 ReceiverReceiverDesc = {
-    'username': unicode,
     'name': unicode,
     'description': unicode,
     'public_name': unicode,
@@ -203,7 +201,6 @@ AdminNodeDesc = {
     'disable_key_code_hint': bool,
     'disable_donation_panel': bool,
     'disable_submissions': bool,
-    'simplified_login': bool,
     'enable_captcha': bool,
     'enable_proof_of_work': bool,
     'enable_experimental_features': bool,
@@ -437,7 +434,6 @@ NodeDesc = {
     'disable_security_awareness_badge': bool,
     'disable_security_awareness_questions': bool,
     'disable_key_code_hint': bool,
-    'simplified_login': bool,
     'enable_captcha': bool,
     'enable_proof_of_work':  bool,
     'enable_custom_privacy_badge': bool,

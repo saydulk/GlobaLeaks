@@ -310,24 +310,6 @@ var GLClient = angular.module('GLClient', [
           access: requireAuth('admin'),
         }
       }).
-      when('/admin', {
-        templateUrl: 'views/login.html',
-        controller: 'LoginCtrl',
-        header_title: 'Login',
-        header_subtitle: '',
-        resolve: {
-          access: noAuth(),
-        }
-      }).
-      when('/custodian', {
-        templateUrl: 'views/login.html',
-        controller: 'LoginCtrl',
-        header_title: 'Login',
-        header_subtitle: '',
-        resolve: {
-          access: noAuth(),
-        }
-      }).
       when('/custodian/identityaccessrequests', {
         templateUrl: 'views/custodian/identity_access_requests.html',
         header_title: 'Custodian of the identities',

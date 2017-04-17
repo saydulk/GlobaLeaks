@@ -23,7 +23,7 @@ class TestAuthentication(helpers.TestHandlerWithPopulatedDB):
     @inlineCallbacks
     def test_successful_login(self):
         handler = self.request({
-            'username': 'admin',
+            'username': 'globaleaks-admin@mailinator.com',
             'password': helpers.VALID_PASSWORD1
         })
         success = yield handler.post()
@@ -33,7 +33,7 @@ class TestAuthentication(helpers.TestHandlerWithPopulatedDB):
     @inlineCallbacks
     def test_accept_login_in_tor2web(self):
         handler = self.request({
-            'username': 'admin',
+            'username': 'globaleaks-admin@mailinator.com',
             'password': helpers.VALID_PASSWORD1
         }, headers={'X-Tor2Web': 'whatever'})
         app_state.memc.accept_tor2web_access['admin'] = True
@@ -44,7 +44,7 @@ class TestAuthentication(helpers.TestHandlerWithPopulatedDB):
     @inlineCallbacks
     def test_deny_login_in_tor2web(self):
         handler = self.request({
-            'username': 'admin',
+            'username': 'globaleaks-admin@mailinator.com',
             'password': helpers.VALID_PASSWORD1
         }, headers={'X-Tor2Web': 'whatever'})
         app_state.memc.accept_tor2web_access['admin'] = False
@@ -54,7 +54,7 @@ class TestAuthentication(helpers.TestHandlerWithPopulatedDB):
     def test_successful_logout(self):
         # Login
         handler = self.request({
-            'username': 'admin',
+            'username': 'globaleaks-admin@mailinator.com',
             'password': helpers.VALID_PASSWORD1
         })
         yield handler.post()
@@ -80,7 +80,7 @@ class TestAuthentication(helpers.TestHandlerWithPopulatedDB):
     @inlineCallbacks
     def test_invalid_login_wrong_password(self):
         handler = self.request({
-            'username': 'admin',
+            'username': 'globaleaks-admin@mailinator.com',
             'password': 'INVALIDPASSWORD'
         })
 
@@ -89,7 +89,7 @@ class TestAuthentication(helpers.TestHandlerWithPopulatedDB):
     @inlineCallbacks
     def test_failed_login_counter(self):
         handler = self.request({
-            'username': 'admin',
+            'username': 'globaleaks-admin@mailinator.com',
             'password': 'INVALIDPASSWORD'
         })
 
@@ -103,7 +103,7 @@ class TestAuthentication(helpers.TestHandlerWithPopulatedDB):
     @inlineCallbacks
     def test_single_session_per_user(self):
         handler = self.request({
-            'username': 'admin',
+            'username': 'globaleaks-admin@mailinator.com',
             'password': helpers.VALID_PASSWORD1
         })
         yield handler.post()
@@ -121,7 +121,7 @@ class TestAuthentication(helpers.TestHandlerWithPopulatedDB):
     @inlineCallbacks
     def test_session_is_revoked(self):
         auth_handler = self.request({
-            'username': 'receiver1',
+            'username': 'globaleaks-receiver1@mailinator.com',
             'password': helpers.VALID_PASSWORD1
         })
         yield auth_handler.post()

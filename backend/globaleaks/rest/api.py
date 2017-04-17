@@ -45,9 +45,6 @@ spec = [
 
     ## Some Useful Redirects ##
     (r'/login', base.BaseRedirectHandler, {'url': '/#/login'}),
-    (r'/admin', base.BaseRedirectHandler, {'url': '/#/admin'}),
-    (r'/custodian', base.BaseRedirectHandler, {'url': '/#/custodian'}),
-
 
     ## Authentication Handlers ##
     (r'/authentication', authentication.AuthenticationHandler),

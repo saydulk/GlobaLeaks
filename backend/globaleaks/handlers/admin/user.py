@@ -92,7 +92,6 @@ def db_create_user(store, tid, request, language):
     apply_pgp_options(request)
 
     user = models.User({
-        'username': request['username'],
         'role': request['role'],
         'state': u'enabled',
         'deletable': request['deletable'],
@@ -106,9 +105,6 @@ def db_create_user(store, tid, request, language):
         'pgp_key_public': request['pgp_key_public'],
         'pgp_key_expiration': request['pgp_key_expiration']
     })
-
-    if request['username'] == '':
-        user.username = user.id
 
     password = request['password']
     if len(password) == 0:
