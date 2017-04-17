@@ -4,7 +4,7 @@ var temporary_password = "typ0drome@absurd.org";
 
 describe('receiver first login', function() {
   it('should redirect to /firstlogin upon successful authentication', function() {
-    utils.login_custodian('Custodian1', utils.vars['default_password'], '/#/custodian', true);
+    utils.login_custodian('Custodian1', utils.vars['default_password'], '/#/login', true);
   });
 
   it('should be able to change password from the default one', function() {
@@ -16,7 +16,7 @@ describe('receiver first login', function() {
   });
 
   it('should be able to login with the new password', function() {
-    utils.login_custodian('Custodian1', temporary_password, '/#/custodian', false);
+    utils.login_custodian('Custodian1', temporary_password, '/#/login', false);
   });
 
   it('should be able to change password accessing the user preferences', function() {

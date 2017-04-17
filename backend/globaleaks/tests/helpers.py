@@ -327,9 +327,8 @@ class TestGL(unittest.TestCase):
     def get_dummy_user(self, role, username):
         new_u = dict(MockDict().dummyUser)
         new_u['role'] = role
-        new_u['username'] = username
-        new_u['name'] = new_u['public_name'] = new_u['mail_address'] = \
-            unicode("%s@%s.xxx" % (username, username))
+        new_u['mail_address'] = unicode("globaleaks-%s@mailinator.com" % username)
+        new_u['name'] = new_u['public_name'] = username
         new_u['description'] = u''
         new_u['password'] = VALID_PASSWORD1
         new_u['state'] = u'enabled'
@@ -819,7 +818,6 @@ class MockDict:
     def __init__(self):
         self.dummyUser = {
             'id': '',
-            'username': u'maker@iz.cool.yeah',
             'password': VALID_PASSWORD1,
             'old_password': '',
             'salt': VALID_SALT1,
@@ -924,7 +922,6 @@ class MockDict:
             'default_language': u'en',
             'default_password': u'globaleaks',
             'admin_language': u'en',
-            'simplified_login': False,
             'enable_captcha': False,
             'enable_proof_of_work': False,
             'enable_experimental_features': False,
