@@ -11,6 +11,7 @@ from globaleaks.handlers.admin.context import admin_serialize_context
 from globaleaks.handlers.admin.node import db_admin_serialize_node
 from globaleaks.handlers.admin.notification import db_get_notification
 from globaleaks.handlers.admin.receiver import admin_serialize_receiver
+from globaleaks.handlers.public import db_prepare_contexts_serialization, db_prepare_receivers_serialization
 from globaleaks.handlers.rtip import serialize_rtip, serialize_message, serialize_comment
 from globaleaks.jobs.base import GLJob
 from globaleaks.orm import transact, transact_sync
@@ -64,9 +65,11 @@ class MailGenerator(object):
             if key == 'tip':
                 cache_obj = serialize_rtip(store, obj, language)
             elif key == 'context':
-                cache_obj = admin_serialize_context(store, obj, language)
+                data = db_prepare_contexts_serialization(store, [obj])
+                cache_obj = admin_serialize_context(store, obj, data, language)
             elif key == 'receiver':
-                cache_obj = admin_serialize_receiver(store, obj, language)
+                data = db_prepare_receivers_serialization(store, [obj])
+                cache_obj = admin_serialize_receiver(store, obj, data, language)
             elif key == 'message':
                 cache_obj = serialize_message(obj)
             elif key == 'comment':

@@ -9,6 +9,7 @@
 import os
 
 from globaleaks.handlers.admin.receiver import admin_serialize_receiver
+from globaleaks.handlers.public import db_prepare_receivers_serialization
 from globaleaks.jobs.base import GLJob
 from globaleaks.models import InternalFile, ReceiverFile
 from globaleaks.orm import transact_sync
@@ -75,13 +76,15 @@ def receiverfile_planning(store):
                   'rfiles': []
                 }
 
+            data_receiver = db_prepare_receivers_serialization(store, [rtip.receiver])
+
             receiverfiles_maps[ifile.id]['rfiles'].append({
                 'id': receiverfile.id,
                 'status': u'processing',
                 'path': ifile.file_path,
                 'size': ifile.size,
                 # TODO (tstate) receiver language could be outside of accepted set without foreign key constraint
-                'receiver': admin_serialize_receiver(store, rtip.receiver, rtip.receiver.user.language)
+                'receiver': admin_serialize_receiver(store, rtip.receiver, data_receiver, rtip.receiver.user.language)
             })
 
     return receiverfiles_maps

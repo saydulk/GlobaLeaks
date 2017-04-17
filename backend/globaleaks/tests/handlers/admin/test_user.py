@@ -34,9 +34,11 @@ class TestUsersCollection(helpers.TestHandlerWithPopulatedDB):
 
     @inlineCallbacks
     def test_post_new_receiver(self):
-        self.dummyReceiverUser_1['username'] = 'beppe'
+        self.dummyReceiver_1['username'] = 'beppe'
 
-        handler = self.request(self.dummyReceiverUser_1, role='admin')
+        new_receiver = self.get_dummy_receiver('beppe')
+
+        handler = self.request(new_receiver, role='admin')
         yield handler.post()
 
 

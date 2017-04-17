@@ -67,7 +67,8 @@ class TestSubmissionEncryptedScenario(helpers.TestHandlerWithPopulatedDB):
 
         counters = {
             'encrypted': 0,
-            'reference': 0
+            'reference': 0,
+            'nokey': 0
         }
 
         for i in range(0, self.files_created):
@@ -129,7 +130,7 @@ class TestSubmissionEncryptedScenarioOneKeyExpired(TestSubmissionEncryptedScenar
 class TestSubmissionEncryptedScenarioOneKeyMissing(TestSubmissionEncryptedScenario):
     encryption_scenario = 'ENCRYPTED_WITH_ONE_KEY_MISSING'
 
-    files_created = 6
+    files_created = 3
 
     counters_check = {
         'encrypted': 3,

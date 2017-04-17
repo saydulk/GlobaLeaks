@@ -11,6 +11,7 @@ from globaleaks.handlers.admin.modelimgs import db_get_model_img
 from globaleaks.handlers.admin.questionnaire import db_get_default_questionnaire_id
 from globaleaks.handlers.admin.step import db_create_step
 from globaleaks.handlers.base import BaseHandler
+from globaleaks.handlers.public import  db_prepare_contexts_serialization
 from globaleaks.orm import transact
 from globaleaks.rest import errors, requests
 from globaleaks.rest.apicache import GLApiCache
@@ -18,7 +19,7 @@ from globaleaks.utils.structures import fill_localized_keys, get_localized_value
 from globaleaks.utils.utility import log
 
 
-def admin_serialize_context(store, context, language):
+def admin_serialize_context(store, context, data, language):
     """
     Serialize the specified context
 
@@ -26,7 +27,7 @@ def admin_serialize_context(store, context, language):
     :param language: the language in which to localize data.
     :return: a dictionary representing the serialization of the context.
     """
-    receivers = [rc.receiver_id for rc in store.find(models.Receiver_Context, models.Receiver_Context.context_id == context.id)]
+    img = data['imgs'][context.id]
 
     ret_dict = {
         'id': context.id,
@@ -46,8 +47,8 @@ def admin_serialize_context(store, context, language):
         'presentation_order': context.presentation_order,
         'show_receivers_in_alphabetical_order': context.show_receivers_in_alphabetical_order,
         'questionnaire_id': context.questionnaire_id,
-        'receivers': receivers,
-        'picture': context.img.data if context.img else ''
+        'receivers': data['receivers'][context.id],
+        'picture': img.data if img else ''
     }
 
     return get_localized_values(ret_dict, context, context.localized_keys, language)
@@ -62,8 +63,11 @@ def get_context_list(store, tid, language):
     :param language: the language in which to localize data.
     :return: a dictionary representing the serialization of the contexts.
     """
-    return [admin_serialize_context(store, context, language)
-        for context in store.find(models.Context, tid=tid)]
+    contexts = store.find(models.Context, tid=tid)
+
+    data = db_prepare_contexts_serialization(store, contexts)
+
+    return [admin_serialize_context(store, context, data, language) for context in contexts]
 
 
 def db_associate_receiver_contexts(store, receiver, contexts_ids):
@@ -94,7 +98,9 @@ def get_context(store, tid, context_id, language):
     """
     context = models.Context.db_get(store, id=context_id, tid=tid)
 
-    return admin_serialize_context(store, context, language)
+    data = db_prepare_contexts_serialization(store, [context])
+
+    return admin_serialize_context(store, context, data, language)
 
 
 def fill_context_request(request, language):
@@ -151,8 +157,6 @@ def db_create_context(store, tid, request, language):
 
     context = models.Context(request)
 
-    context.tid = tid
-
     store.add(context)
 
     db_associate_context_receivers(store, context, request['receivers'])
@@ -176,7 +180,9 @@ def create_context(store, tid, request, language):
     """
     context = db_create_context(store, tid, request, language)
 
-    return admin_serialize_context(store, context, language)
+    data = db_prepare_contexts_serialization(store, [context])
+
+    return admin_serialize_context(store, context, data, language)
 
 
 @transact
@@ -203,7 +209,9 @@ def update_context(store, tid, context_id, request, language):
 
     context = db_update_context(store, tid, context, request, language)
 
-    return admin_serialize_context(store, context, language)
+    data = db_prepare_contexts_serialization(store, [context])
+
+    return admin_serialize_context(store, context, data, language)
 
 
 class ContextsCollection(BaseHandler):

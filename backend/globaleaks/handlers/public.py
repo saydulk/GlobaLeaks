@@ -4,6 +4,7 @@
 #
 # Implementation of classes handling the HTTP request to /node, public
 # exposed API.
+
 from storm.expr import In
 from twisted.internet.defer import inlineCallbacks
 
@@ -54,7 +55,7 @@ def serialize_node(store, tid, language):
     return db_serialize_node(store, tid, language)
 
 
-def serialize_context(store, context, language):
+def serialize_context(store, context, data, language):
     """
     Serialize context description
 
@@ -62,7 +63,7 @@ def serialize_context(store, context, language):
     @return: a dict describing the contexts available for submission,
         (e.g. checks if almost one receiver is associated)
     """
-    receivers = [rc.receiver_id for rc in store.find(models.Receiver_Context, models.Receiver_Context.context_id == context.id)]
+    img = data['imgs'][context.id]
 
     ret_dict = {
         'id': context.id,
@@ -82,8 +83,8 @@ def serialize_context(store, context, language):
         'enable_rc_to_wb_files': context.enable_rc_to_wb_files,
         'show_receivers_in_alphabetical_order': context.show_receivers_in_alphabetical_order,
         'questionnaire_id': context.questionnaire_id,
-        'receivers': receivers,
-        'picture': context.img.data if context.img is not None else ''
+        'receivers': data['receivers'][context.id],
+        'picture': img.data if img is not None else ''
     }
 
     return get_localized_values(ret_dict, context, context.localized_keys, language)
@@ -150,6 +151,45 @@ def serialize_field_attr(attr, language):
         get_localized_values(ret_dict, ret_dict, ['value'], language)
 
     return ret_dict
+
+
+def db_prepare_contexts_serialization(store, contexts):
+    data = {'imgs': {}, 'receivers': {}}
+
+    contexts_ids = []
+    for c in contexts:
+        data['imgs'][c.id] = None
+        data['receivers'][c.id] = []
+        contexts_ids.append(c.id)
+
+    for o in store.find(models.ContextImg, In(models.ContextImg.id, contexts_ids)):
+        data['imgs'][o.context_id].append(o)
+
+    for o in store.find(models.Receiver_Context, In(models.Receiver_Context.context_id, contexts_ids)):
+        data['receivers'][o.context_id].append(o.receiver_id)
+
+    return data
+
+
+def db_prepare_receivers_serialization(store, receivers):
+    data = {'users': {}, 'imgs': {}, 'contexts': {}}
+
+    receivers_ids = []
+    for r in receivers:
+        data['imgs'][r.id] = None
+        data['contexts'][r.id] = []
+        receivers_ids.append(r.id)
+
+    for o in store.find(models.User, In(models.User.id, receivers_ids)):
+        data['users'][o.id] = o
+
+    for o in store.find(models.UserImg, In(models.UserImg.id, receivers_ids)):
+        data['imgs'][o.user_id].append(o)
+
+    for o in store.find(models.Receiver_Context, In(models.Receiver_Context.receiver_id, receivers_ids)):
+        data['contexts'][o.receiver_id].append(o.context_id)
+
+    return data
 
 
 def db_prepare_fields_serialization(store, fields):
@@ -276,7 +316,7 @@ def serialize_step(store, step, language):
     return get_localized_values(ret_dict, step, step.localized_keys, language)
 
 
-def serialize_receiver(store, receiver, language):
+def serialize_receiver(store, receiver, data, language):
     """
     Serialize a receiver description
 
@@ -284,19 +324,20 @@ def serialize_receiver(store, receiver, language):
     :param language: the language in which to localize data
     :return: a serializtion of the object
     """
-    contexts = [rc.context_id for rc in store.find(models.Receiver_Context, models.Receiver_Context.receiver_id == receiver.id)]
+    user = data['users'][receiver.id]
+    img = data['imgs'][receiver.id]
 
     ret_dict = {
         'id': receiver.id,
-        'name': receiver.user.public_name,
-        'state': receiver.user.state,
+        'name': user.public_name,
+        'state': user.state,
         'configuration': receiver.configuration,
         'presentation_order': receiver.presentation_order,
-        'contexts': contexts,
+        'context': data['contexts'][receiver.id]
     }
 
     # description and eventually other localized strings should be taken from user model
-    get_localized_values(ret_dict, receiver.user, ['description'], language)
+    get_localized_values(ret_dict, user, ['description'], language)
 
     return get_localized_values(ret_dict, receiver, receiver.localized_keys, language)
 
@@ -308,31 +349,33 @@ def db_get_questionnaire_list(store, language):
 
 def db_get_public_context_list(store, tid, language):
     # fetch context that have associated at least one receiver
-    contexts = store.find(models.Context, models.Context.tid == tid,
-                                          models.Context.id == models.Receiver_Context.context_id)
+    contexts = store.find(models.Context, tid=tid)
 
-    return [serialize_context(store, context, language) for context in contexts]
+    data = db_prepare_contexts_serialization(store, contexts)
+
+    return [serialize_context(store, context, data, language) for context in contexts]
 
 
-def db_get_public_receiver_list(store, tstate, language):
+def db_get_public_receiver_list(store, tid, language):
     # fetch receivers that have associated at least one context
     receivers = store.find(models.Receiver,
                            models.Receiver.id == models.User.id,
                            models.User.state != u'disabled',
-                           models.Receiver.id == models.Receiver_Context.receiver_id,
                            models.Receiver.id == models.User_Tenant.user_id,
-                           models.User_Tenant.tenant_id == tstate.id)
+                           models.User_Tenant.tenant_id == tid)
 
-    return [serialize_receiver(store, receiver, language) for receiver in receivers]
+    data = db_prepare_receivers_serialization(store, receivers)
+
+    return [serialize_receiver(store, receiver, data, language) for receiver in receivers]
 
 
 @transact
-def get_public_resources(store, tstate, language):
+def get_public_resources(store, tid, language):
     return {
-        'node': db_serialize_node(store, tstate.id, language),
-        'contexts': db_get_public_context_list(store, tstate.id, language),
+        'node': db_serialize_node(store, tid, language),
+        'contexts': db_get_public_context_list(store, tid, language),
         'questionnaires': db_get_questionnaire_list(store, language),
-        'receivers': db_get_public_receiver_list(store, tstate, language),
+        'receivers': db_get_public_receiver_list(store, tid, language),
     }
 
 
@@ -348,6 +391,6 @@ class PublicResource(BaseHandler):
                                    'public',
                                    self.request.language,
                                    get_public_resources,
-                                   self.tstate,
+                                   self.tstate.id,
                                    self.request.language)
         self.write(ret)

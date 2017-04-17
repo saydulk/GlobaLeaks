@@ -73,8 +73,6 @@ def db_create_receiver(store, tid, request, language):
 
     store.add(receiver)
 
-    db_associate_receiver_contexts(store, receiver, request['contexts'])
-
     log.debug("Created new receiver")
 
     return receiver
@@ -225,6 +223,9 @@ class UsersCollection(BaseHandler):
                                         requests.AdminUserDesc)
 
         if request['role'] == 'receiver':
+            if 'contexts' not in request:
+                request['contexts'] = []
+
             response = yield create_receiver_user(self.current_tenant, request, self.request.language)
         elif request['role'] == 'custodian':
             response = yield create_custodian_user(self.current_tenant, request, self.request.language)

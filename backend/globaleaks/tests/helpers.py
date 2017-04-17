@@ -223,11 +223,11 @@ class TestGL(unittest.TestCase):
 
         allow_unencrypted = self.encryption_scenario in ['PLAINTEXT', 'MIXED']
 
+        yield update_node_setting(app_state.root_id, 'allow_unencrypted', allow_unencrypted)
+
         # TODO Create a new app_state for every request instead of
         # modifying this existing one.
         yield app_state.refresh()
-
-        yield update_node_setting(app_state.root_id, 'allow_unencrypted', allow_unencrypted)
 
         sup = ProcessSupervisor([], '127.0.0.1', 18082)
         GLSettings.state.process_supervisor = sup

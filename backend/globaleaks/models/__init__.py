@@ -108,7 +108,7 @@ class Context(ModelWithIDandTID):
 
     questionnaire_id = Unicode()
 
-    unicode_keys = ['questionnaire_id']
+    unicode_keys = ['tid', 'questionnaire_id']
 
     localized_keys = ['name', 'description', 'recipients_clarification', 'status_page_message']
 
