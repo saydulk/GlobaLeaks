@@ -2,48 +2,50 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 
 
 class GLApiCache(object):
-    per_tenant_cache = {}
-
-    @classmethod
-    def add_tenant(cls, tid):
-        cls.per_tenant_cache[tid] = {}
+    _cache = dict()
 
     @classmethod
     @inlineCallbacks
-    def get(cls, current_tid, resource_name, language, function, *args, **kwargs):
-        memory_cache_dict = cls.per_tenant_cache.get(current_tid ,{})
+    def get(cls, tid, resource, language, function, *args, **kwargs):
+        """
+        Get a resource from cache.
+        The function is written to be run in main twisted thread,
+        guaranee of no concurrency.
+        """
+        try:
+            returnValue(cls._cache[tid][resource][language])
+        except KeyError:
+            value = yield function(*args, **kwargs)
 
-        if resource_name in memory_cache_dict \
-                and language in memory_cache_dict[resource_name]:
-            returnValue(memory_cache_dict[resource_name][language])
+            if tid not in cls._cache:
+                cls._cache[tid] = {}
 
-        value = yield function(*args, **kwargs)
-        if resource_name not in memory_cache_dict:
-            memory_cache_dict[resource_name] = {}
-        memory_cache_dict[resource_name][language] = value
-        returnValue(value)
+            if resource not in cls._cache[tid]:
+                cls._cache[tid][resource] = {}
+
+            if language not in cls._cache[tid][resource]:
+                cls._cache[tid][resource][language] = value
+
+            returnValue(cls._cache[tid][resource][language])
 
     @classmethod
-    def set(cls, current_tid, resource_name, language, value):
-        memory_cache_dict = cls.per_tenant_cache.get(current_tid, {})
-        if resource_name not in memory_cache_dict:
-            memory_cache_dict[resource_name] = {}
+    def invalidate(cls, tid=None, resource=None, language=None):
+        """
+        Invalidate cache.
+        The function is written to be run in main twisted thread,
+        guaranee of no concurrency.
+        """
+        try:
+            if language is not None and resource is not None and tid is not None:
+                del cls._cache[tid][resource][language]
 
-        memory_cache_dict[resource_name][language] = value
+            elif resource is not None and tid is not None:
+                del cls._cache[tid][resource]
 
-    @classmethod
-    def invalidate_all(cls):
-        """
-        Drops the cache for every tenant
-        """
-        cls.per_tenant_cache = {}
+            elif tid is not None:
+                del cls._cache[tid]
 
-    @classmethod
-    def invalidate(cls, current_tid, resource_name=None):
-        """
-        When a function is updated, all of the cached content will be dropped
-        for that tenant
-        """
-        memory_cache_dict = cls.per_tenant_cache.get(current_tid, {})
-        if resource_name is not None:
-            memory_cache_dict.pop(resource_name, None)
+            else:
+                cls._cache.clear()
+        except KeyError:
+            pass
