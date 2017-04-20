@@ -69,8 +69,6 @@ def create_receiver(store, tid, request, language):
     request['tip_expiration_threshold'] = app_state.get_root_tenant().memc.notif.tip_expiration_threshold
     receiver = db_create_receiver(store, tid, request, language)
 
-    db_associate_receiver_contexts(store, receiver, request['contexts'])
-
     data = db_prepare_receivers_serialization(store, [receiver])
 
     return admin_serialize_receiver(store, receiver, data, language)

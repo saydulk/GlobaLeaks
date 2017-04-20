@@ -73,6 +73,8 @@ def db_create_receiver(store, tid, request, language):
 
     store.add(receiver)
 
+    db_associate_receiver_contexts(store, receiver, request['contexts'])
+
     log.debug("Created new receiver")
 
     return receiver
