@@ -31,8 +31,13 @@ class TestWizard(helpers.TestHandler):
         }
 
     @inlineCallbacks
-    def test_post(self):
-        handler = self.request(self.wizard_blob, role='admin')
+    def test_post_with_arabic(self):
+        handler = self.request(self.wizard_blob, role='admin', headers={'GL-Language': 'ar'})
+        yield handler.post()
+
+    @inlineCallbacks
+    def test_post_with_english(self):
+        handler = self.request(self.wizard_blob, role='admin', headers={'GL-Language': 'en'})
         yield handler.post()
 
     @inlineCallbacks

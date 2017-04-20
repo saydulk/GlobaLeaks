@@ -28,6 +28,9 @@ def wizard(store, tid, request, language):
         log.err("DANGER: Wizard already initialized!")
         raise errors.ForbiddenOperation
 
+    if language != u'en':
+        set_enabled_languages(store, tid, language, [language])
+
     node._query_group()
 
     nn = unicode(request['node']['name'])
@@ -42,9 +45,6 @@ def wizard(store, tid, request, language):
     node_l10n.set_val('presentation', language, nn)
 
     context = db_create_context(store, tid, request['context'], language)
-
-    if language != u'en':
-        set_enabled_languages(store, tid, language, [language])
 
     request['receiver']['contexts'] = [context.id]
     request['receiver']['language'] = language
