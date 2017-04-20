@@ -40,14 +40,20 @@ class GLApiCache(object):
         The function is written to be run in main twisted thread,
         guarantee of no concurrency.
         """
-        if language is not None:
-            del cls._cache[tid][resource][language]
+        # For simplicity the cache deletion acts direct deletion
+        try:
 
-        elif resource is not None:
-            del cls._cache[tid][resource]
+            if language is not None:
+                del cls._cache[tid][resource][language]
 
-        elif tid is not None:
-            del cls._cache[tid]
+            elif resource is not None:
+                del cls._cache[tid][resource]
 
-        else:
-            cls._cache.clear()
+            elif tid is not None:
+                del cls._cache[tid]
+
+            else:
+                cls._cache.clear()
+
+        except KeyError:
+            pass
