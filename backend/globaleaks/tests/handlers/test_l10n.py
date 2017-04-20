@@ -25,7 +25,7 @@ class TestL10NHandler(helpers.TestHandler):
 
         yield admin_l10n.update_custom_texts(app_state.root_id, u'en', custom_texts)
 
-        GLApiCache.invalidate('l10n')
+        GLApiCache.invalidate(app_state.root_id, 'l10n')
 
         yield handler.get(lang=u'en')
 
