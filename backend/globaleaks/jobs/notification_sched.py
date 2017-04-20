@@ -134,6 +134,7 @@ class MailGenerator(object):
         self.process_mail_creation(store, data)
 
     def process_mail_creation(self, store, data):
+        data['tid'] = data['context']['tid']
         receiver_id = data['receiver']['id']
 
         # Do not spool emails if the receiver has opted out of ntfns for this tip.
@@ -187,6 +188,7 @@ class MailGenerator(object):
                 gpob.destroy_environment()
 
         store.add(models.Mail({
+            'tid': data['tid'],
             'address': data['receiver']['mail_address'],
             'subject': subject,
             'body': body
@@ -194,16 +196,13 @@ class MailGenerator(object):
 
 
     @transact_sync
-    def generate(self, store, tstate):
+    def generate(self, store):
         for trigger in ['ReceiverTip', 'Comment', 'Message', 'ReceiverFile']:
             model = trigger_model_map[trigger]
 
             elements = store.find(model, model.new == True)
             for element in elements:
                 element.new = False
-
-                if tstate.memc.notif.disable_receiver_notification_emails:
-                    continue
 
                 data = {
                     'type': trigger_template_map[trigger]
@@ -259,9 +258,6 @@ class NotificationSchedule(GLJob):
             threads.blockingCallFromThread(reactor, self.sendmail, mail)
 
     def operation(self):
-        # TODO TODO TODO This will perform all of the meaningful actions in first tenant run
-        for tstate in app_state.tenant_states.values():
-            MailGenerator().generate(tstate)
-        # TODO TODO TODO
+        MailGenerator().generate()
 
         self.spool_emails()

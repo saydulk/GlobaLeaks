@@ -121,6 +121,7 @@ class CleaningSchedule(GLJob):
             subject, body = Templating().get_mail_subject_and_body(data)
 
             mail = models.Mail({
+               'tid': tid,
                'address': receiver_desc['mail_address'],
                'subject': subject,
                'body': body

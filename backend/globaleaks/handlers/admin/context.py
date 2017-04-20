@@ -31,6 +31,7 @@ def admin_serialize_context(store, context, data, language):
 
     ret_dict = {
         'id': context.id,
+        'tid': context.tid,
         'tip_timetolive': context.tip_timetolive,
         'select_all_receivers': context.select_all_receivers,
         'maximum_selectable_receivers': context.maximum_selectable_receivers,

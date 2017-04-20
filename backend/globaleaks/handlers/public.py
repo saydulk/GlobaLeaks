@@ -67,6 +67,7 @@ def serialize_context(store, context, data, language):
 
     ret_dict = {
         'id': context.id,
+        'tid': context.tid,
         'presentation_order': context.presentation_order,
         'tip_timetolive': context.tip_timetolive,
         'select_all_receivers': context.select_all_receivers,

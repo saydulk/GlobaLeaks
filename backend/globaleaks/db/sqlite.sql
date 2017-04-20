@@ -218,11 +218,13 @@ CREATE TABLE identityaccessrequest (
 
 CREATE TABLE mail (
     id TEXT NOT NULL,
+    tid INTEGER NOT NULL,
     creation_date TEXT NOT NULL,
     address TEXT NOT NULL,
     subject TEXT NOT NULL,
     body TEXT NOT NULL,
     processing_attempts INTEGER NOT NULL,
+    FOREIGN KEY (tid) REFERENCES tenant(id) ON DELETE CASCADE,
     PRIMARY KEY (id)
 );
 

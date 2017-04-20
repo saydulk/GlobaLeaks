@@ -49,6 +49,7 @@ class PGPCheckSchedule(GLJob):
             subject, body = Templating().get_mail_subject_and_body(data)
 
             store.add(models.Mail({
+                'tid': app_state.root_id,
                 'address': user_desc['mail_address'],
                 'subject': subject,
                 'body': body
@@ -69,6 +70,7 @@ class PGPCheckSchedule(GLJob):
         subject, body = Templating().get_mail_subject_and_body(data)
 
         store.add(models.Mail({
+            'tid': app_state.root_id,
             'address': user_desc['mail_address'],
             'subject': subject,
             'body': body

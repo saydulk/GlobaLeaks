@@ -323,7 +323,7 @@ class Message(ModelWithID):
     new = Int(default=True)
 
 
-class Mail(ModelWithID):
+class Mail(ModelWithIDandTID):
     """
     This model keeps track of emails to be spooled by the system
     """
@@ -335,6 +335,7 @@ class Mail(ModelWithID):
 
     processing_attempts = Int(default=0)
 
+    int_keys = ['tid']
     unicode_keys = ['address', 'subject', 'body']
 
 
