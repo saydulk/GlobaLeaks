@@ -4,6 +4,10 @@ PRAGMA auto_vacuum = FULL;
 CREATE TABLE tenant (
     id INTEGER NOT NULL,
     label TEXT NOT NULL,
+    active BOOL NOT NULL,
+    -- TODO temporary
+    wizard_token TEXT,
+    creation_date TEXT NOT NULL,
     https_hostname TEXT,
     onion_hostname TEXT,
     -- Note NULL values do not count as unique

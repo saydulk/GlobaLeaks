@@ -547,6 +547,7 @@ InternalTipDesc = {
 }
 
 WizardDesc = {
+    'token': unicode,
     'node': {
       'name': unicode,
       'description': unicode

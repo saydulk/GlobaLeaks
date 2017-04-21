@@ -38,23 +38,29 @@
         <form id="tenant-{{$index}}" name="editTenant" data-ng-controller="TenantEditorCtrl" novalidate>
           <div class="configItem">
             <div class="editorHeader row">
-              <span class="col-md-6">
-                <span class="editorHeaderTitle">
+              <div class="col-md-6">
+                <div class="editorHeaderTitle">
                   <span data-translate>Hostname</span>: <span data-ng-show="!tenant.https_hostname" class="label label-warning" data-translate>Not set</span>
                   {{tenant.https_hostname}}
-                </span>
-                <span data-translate>Label</span>: {{tenant.label}}
-                <span>ID: {{tenant.id}}</span>
-                <span data-ng-show="tenant.onion_hostname"><span data-translate>Onion address</span>: {{tenant.onion_hostname}}</span>
-              </span>
-              <span class="col-md-6">
+                </div>
+                <div>
+                  <span data-translate>Label</span>: {{tenant.label}}
+                  <span>ID: {{tenant.id}}</span>
+                  <span data-ng-show="tenant.onion_hostname"><span data-translate>Onion address</span>: {{tenant.onion_hostname}}</span>
+
+                  <span data-ng-hide="tenant.active" class="label label-danger" data-translate>Inactive</span>
+                  <span data-ng-show="tenant.active" class="label label-primary" data-translate>Active</span>
+                  <a data-ng-show="tenant.wizard_url" class="btn btn-xs btn-primary" target="_blank" href="{{tenant.wizard_url}}">Setup tenant</a>
+                </div>
+              </div>
+              <div class="col-md-6">
                   <span class="pull-right">
                     <button class="actionButton actionButtonDelete btn btn-xs btn-danger"
                       data-ng-hide="isCurrentTenant(tenant)" data-ng-click="delete_tenant(tenant); $event.stopPropagation();"
                       data-translate>Delete</button>
                     <span class="label label-success" data-ng-show="isCurrentTenant(tenant)" data-translate>Current</span>
                   </span>
-              </span>
+              </div>
             </div>
           </div>
         </form>

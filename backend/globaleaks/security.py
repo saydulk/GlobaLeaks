@@ -343,6 +343,8 @@ def change_password(old_password_hash, old_password, new_password, salt):
 
     return hash_password(new_password, salt)
 
+def strings_equal(a, b):
+    return constant_time.bytes_eq(bytes(a), bytes(b))
 
 class GLBPGP(object):
     """

@@ -1,4 +1,6 @@
 # -*- coding: UTF-8
+import urlparse
+
 from storm.locals import Bool, Int, Reference, ReferenceSet, Unicode, Storm, JSON
 
 from globaleaks.models.config import Config
@@ -20,10 +22,29 @@ class Tenant(Model):
     """
     id = Int(primary=True)
     label = Unicode(validator=shorttext_v)
+    active = Bool(default=True)
+    creation_date = DateTime(default_factory=datetime_now)
     https_hostname = Unicode(validator=shorttext_v)
     onion_hostname = Unicode(validator=shorttext_v)
 
+    wizard_token = Unicode()
+
     unicode_keys = ['label', 'https_hostname']
+
+    def create_wizard_url(self):
+        if self.onion_hostname:
+            scheme, base = 'http', self.onion_hostname
+        else:
+            # TODO change to HTTPS when sni with wildcards are used
+            scheme, base = 'http', self.https_hostname
+        query = 'token=' + self.wizard_token
+        return urlparse.urlunsplit((scheme, base, '#/wizard', query, ''))
+
+    def requires_token(self):
+        '''Returns a true if the tenant must use a token when completing the wizard
+        '''
+        # TODO use creation_date and enabled to block configuration with name can_use_wizrd
+        return self.wizard_token is not None
 
 
 class User(ModelWithID):

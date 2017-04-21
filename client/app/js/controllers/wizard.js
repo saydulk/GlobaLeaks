@@ -8,6 +8,8 @@ GLClient.controller('WizardCtrl', ['$scope', '$location', '$route', '$http', 'Au
 
     $scope.finish = function() {
       if (!finished) {
+
+        $scope.wizard.token = $location.search().token || '';
         $http.post('wizard', $scope.wizard).then(function() {
           Authentication.login($scope.wizard.admin.mail_address, $scope.wizard.admin.password, function() {
             $scope.reload("/admin/landing");

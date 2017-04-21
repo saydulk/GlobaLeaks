@@ -16,6 +16,7 @@ from globaleaks.models.l10n import EnabledLanguage
 from globaleaks.orm import transact
 from globaleaks.rest import requests
 from globaleaks.settings import GLSettings
+from globaleaks.security import generateRandomKey
 from globaleaks.utils.utility import log
 from globaleaks.constants import ROOT_TENANT
 
@@ -23,18 +24,25 @@ from globaleaks.state import app_state
 
 
 def serialize_tenant(tenant):
-    return {
+    d = {
         'id': tenant.id,
         'label': tenant.label,
+        'active': tenant.active,
         'https_hostname': tenant.https_hostname,
         'onion_hostname': tenant.onion_hostname,
     }
+    if tenant.wizard_token is not None:
+        d['wizard_url'] = tenant.create_wizard_url()
+    return d
 
 
-def db_create_tenant(store, desc, appdata):
+def db_create_tenant(store, desc, appdata, require_token=True):
     tenant = Tenant(desc)
-    store.add(tenant)
 
+    if require_token:
+        tenant.wizard_token = generateRandomKey(32)
+
+    store.add(tenant)
     #TODO remove flush
     store.flush()
 
@@ -58,8 +66,8 @@ def db_create_tenant(store, desc, appdata):
 
 
 @transact
-def create_tenant(store, desc, appdata):
-    return serialize_tenant(db_create_tenant(store, desc, appdata))
+def create_tenant(store, desc, appdata, *args, **kwargs):
+    return serialize_tenant(db_create_tenant(store, desc, appdata, *args, **kwargs))
 
 
 @transact
@@ -90,7 +98,7 @@ class TenantCollection(BaseHandler):
 
         from globaleaks.db.appdata import load_appdata
 
-        response = yield create_tenant(request, load_appdata())
+        response = yield create_tenant(request, load_appdata(), require_token=True)
 
         yield app_state.refresh()
 
