@@ -327,6 +327,10 @@ var GLClient = angular.module('GLClient', [
           access: noAuth(),
         }
       }).
+      when('/admin', {
+        // Preserve old /admin link
+        redirectTo: '/login'
+      }).
       when('/', {
         templateUrl: 'views/home.html',
         controller: 'HomeCtrl',
