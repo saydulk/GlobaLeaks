@@ -24,6 +24,7 @@ class TestWizard(helpers.TestHandler):
         }
 
         self.wizard_blob = {
+            'token': '',
             'node': self.dummyNode,
             'admin': admin,
             'receiver': self.get_dummy_receiver("christianice"),
