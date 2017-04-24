@@ -30,6 +30,7 @@ class Tenant(Model):
     wizard_token = Unicode()
 
     unicode_keys = ['label', 'https_hostname']
+    bool_keys = ['active']
 
     def create_wizard_url(self):
         if self.onion_hostname:

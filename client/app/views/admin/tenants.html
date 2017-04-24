@@ -48,8 +48,12 @@
                   <span>ID: {{tenant.id}}</span>
                   <span data-ng-show="tenant.onion_hostname"><span data-translate>Onion address</span>: {{tenant.onion_hostname}}</span>
 
-                  <span data-ng-hide="tenant.active" class="label label-danger" data-translate>Inactive</span>
-                  <span data-ng-show="tenant.active" class="label label-primary" data-translate>Active</span>
+                  <span data-ng-hide="tenant.active" class="label label-danger"
+                    data-ng-click="toggleActivation()"
+                    data-translate>Inactive</span>
+                  <span data-ng-show="tenant.active" class="label label-primary"
+                    data-ng-click="toggleActivation()"
+                    data-translate>Active</span>
                   <a data-ng-show="tenant.wizard_url" class="btn btn-xs btn-primary" target="_blank" href="{{tenant.wizard_url}}">Setup tenant</a>
                 </div>
               </div>

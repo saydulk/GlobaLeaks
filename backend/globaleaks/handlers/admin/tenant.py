@@ -14,11 +14,12 @@ from globaleaks.handlers.base import BaseHandler
 from globaleaks.models import Tenant, config
 from globaleaks.models.l10n import EnabledLanguage
 from globaleaks.orm import transact
-from globaleaks.rest import requests
+from globaleaks.rest import requests, errors
 from globaleaks.settings import GLSettings
 from globaleaks.security import generateRandomKey
 from globaleaks.utils.utility import log
 from globaleaks.constants import ROOT_TENANT
+from globaleaks.onion_services import db_configure_tor_hs
 
 from globaleaks.state import app_state
 
@@ -51,8 +52,10 @@ def db_create_tenant(store, desc, appdata, require_token=True):
     EnabledLanguage.enable_language(store, tenant.id, u'en', appdata)
 
     # TODO talk with tor_ephem_hs to initialize an ephem HS
-    #if GLSettings.devel_mode:
-    #  tenant.onion_address = 'do something crazy!!!!'
+    if GLSettings.devel_mode:
+        tenant.onion_address = 'do.something.onion'
+
+    db_configure_tor_hs(store, tenant.id, GLSettings.bind_port)
 
     for t in [(u'logo', 'data/logo.png'),
               (u'favicon', 'data/favicon.ico')]:
@@ -74,6 +77,29 @@ def create_tenant(store, desc, appdata, *args, **kwargs):
 def get_tenant_list(store):
     return [serialize_tenant(tenant) for tenant in store.find(Tenant)]
 
+@transact
+def admin_update_tenant(store, tid, request):
+    tenant = Tenant.db_get(store, id=tid)
+    Tenant.update(tenant, request)
+
+
+def root_tenant_only(f):
+    """
+    RequestHandler decorator that ensures the current user, passed tenant and
+    tenant to be edited satisfy the following checks:
+       - The root tenant is not edited
+       - The current session is editing from the root tenant
+    """
+    def wrapper(obj, *args, **kwargs):
+        # Must be root tenant to edit config
+        if not obj.tstate.id == ROOT_TENANT:
+            raise errors.ForbiddenOperation()
+        # Cannot edit root tenant
+        if kwargs.get('tenant_id', None) == str(ROOT_TENANT):
+            raise errors.ForbiddenOperation()
+        return f(obj, *args, **kwargs)
+    return wrapper
+
 
 class TenantCollection(BaseHandler):
     @BaseHandler.transport_security_check('admin')
@@ -87,9 +113,10 @@ class TenantCollection(BaseHandler):
 
         self.write(response)
 
+    @inlineCallbacks
+    @root_tenant_only
     @BaseHandler.transport_security_check('admin')
     @BaseHandler.authenticated('admin')
-    @inlineCallbacks
     def post(self):
         """
         Create a new tenant
@@ -107,7 +134,9 @@ class TenantCollection(BaseHandler):
 
 
 class TenantInstance(BaseHandler):
+
     @inlineCallbacks
+    @root_tenant_only
     @BaseHandler.transport_security_check('admin')
     @BaseHandler.authenticated('admin')
     def delete(self, tenant_id):
@@ -115,7 +144,17 @@ class TenantInstance(BaseHandler):
         Delete the specified tenant.
         """
         tenant_id = int(tenant_id)
-        if tenant_id == self.current_tenant or tenant_id == ROOT_TENANT:
-            raise Exception('System will not delete the current tenant.')
-
         yield Tenant.delete(id=tenant_id)
+        yield app_state.refresh()
+
+    @inlineCallbacks
+    @root_tenant_only
+    @BaseHandler.transport_security_check('admin')
+    @BaseHandler.authenticated('admin')
+    def put(self, tenant_id):
+        request = self.validate_message(self.request.body,
+                                        requests.AdminTenantUpdateDesc)
+
+        tenant_id = int(tenant_id)
+        yield admin_update_tenant(tenant_id, request)
+        yield app_state.refresh()

@@ -46,7 +46,7 @@ class TenantState(object):
 
     @transact
     def refresh(self, store):
-        return db_refresh(self, store)
+        return self.db_refresh(store)
 
 
 class AppState(object):
@@ -80,7 +80,7 @@ class AppState(object):
         self.tenant_hostname_id_map = dict()
 
     def db_refresh(self, store):
-        tenants = store.find(models.Tenant)
+        tenants = store.find(models.Tenant, models.Tenant.active == True)
         self.tenant_hostname_id_map = {t.https_hostname: t.id for t in tenants}
         tenants_ids = [t.id for t in tenants]
 

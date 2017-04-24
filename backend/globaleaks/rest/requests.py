@@ -399,6 +399,11 @@ AdminTenantDesc = {
     'https_hostname': hostname_with_port_regexp,
 }
 
+AdminTenantUpdateDesc = {
+    'label': unicode,
+    'active': bool,
+}
+
 AdminShortURLDesc = {
     'shorturl': shorturl_regexp,
     'longurl': longurl_regexp

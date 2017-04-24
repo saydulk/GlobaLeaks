@@ -119,7 +119,6 @@ def write_upload_encrypted_to_disk(uploaded_file, destination):
     return uploaded_file
 
 
-
 class StaticFileProducer(object):
     """Streaming producter for files
 

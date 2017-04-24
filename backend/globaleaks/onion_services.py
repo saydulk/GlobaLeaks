@@ -8,8 +8,10 @@ from twisted.internet.error import ConnectionRefusedError
 from twisted.internet.defer import inlineCallbacks, Deferred
 
 from globaleaks.orm import transact_sync
+from globaleaks.models import Tenant
 from globaleaks.models.config import PrivateFactory
 from globaleaks.utils.utility import log
+
 
 # Only use mock if txtorcon does not support ephemeral services.
 if V(txtorcon.__version__) < V('0.15.1'):
