@@ -14,6 +14,8 @@ from OpenSSL.SSL import Connection
 
 from twisted.internet.interfaces import IOpenSSLServerConnectionCreator
 
+from globaleaks.utils.tls import new_tls_context
+
 class _NegotiationData(object):
     """
     A container for the negotiation data.
@@ -123,6 +125,7 @@ class SNIMap(object):
         )
 
         self.context = self.mapping['DEFAULT'].getContext()
+        #self.context = new_tls_context()
 
         self.context.set_tlsext_servername_callback(
             self.selectContext
@@ -130,18 +133,20 @@ class SNIMap(object):
 
     def selectContext(self, connection):
         common_name = connection.get_servername()
-
+        print('For connection: %s with cname: %s choosing from: %s' % (connection, common_name, self.mapping))
         if common_name in self.mapping:
             newContext = self.mapping[common_name].getContext()
 
-            negotiationData = self._negotiationDataForContext[connection.get_context()]
-            negotiationData.negotiateNPN(newContext)
-            negotiationData.negotiateALPN(newContext)
+            #negotiationData = self._negotiationDataForContext[connection.get_context()]
+            #negotiationData.negotiateNPN(newContext)
+            #negotiationData.negotiateALPN(newContext)
             connection.set_context(newContext)
 
     def serverConnectionForTLS(self, protocol):
-        return _ConnectionProxy(Connection(self.context, None), self)
+        return Connection(self.context, None)
+        #return _ConnectionProxy(Connection(self.context, None), self)
 
+    '''
     def _npnAdvertiseCallbackForContext(self, context, callback):
         self._negotiationDataForContext[context].npnAdvertiseCallback = (
             callback
@@ -155,3 +160,12 @@ class SNIMap(object):
 
     def _alpnProtocolsForContext(self, context, protocols):
         self._negotiationDataForContext[context].alpnProtocols = protocols
+
+    '''
+    def add_new_context(self, common_name, ctx):
+        # TODO if common_name is 'DEFAULT' throw up
+        self.mapping[common_name] = ctx
+
+    def remove_old_context(self, common_name):
+        # TODO if common_name is 'DEFAULT' throw up
+        self.mapping.pop(common_name)

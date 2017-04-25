@@ -1,3 +1,4 @@
+import os
 import socket
 
 from twisted.protocols import tls
@@ -21,6 +22,21 @@ def open_socket_listen(ip, port):
     s.bind((ip, port))
     s.listen(1024)
     return s
+
+
+def open_unix_socket(path):
+    if os.path.exists(path):
+        os.unlink(path)
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    s.setblocking(False)
+    #s.bind(path)
+    return s
+
+
+def unix_sock_path():
+    rand = ''.join(map(hex, map(ord, os.urandom(4))))
+    # TODO output looks like: /tmp/glsub-uds-0x4b0xb30x330x58
+    return '/tmp/glsub-uds-' + rand
 
 
 def reserve_port_for_ip(ip, port):

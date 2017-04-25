@@ -7,9 +7,13 @@ import sys
 import traceback
 
 from twisted.internet import defer, reactor
+from twisted.internet.defer import inlineCallbacks
 from twisted.internet.protocol import ProcessProtocol
+from twisted.spread import pb
 
-from globaleaks.utils.utility import log
+from globaleaks.utils.utility import log, randint
+from globaleaks.utils.sock import unix_sock_path
+from globaleaks.models.config import tx_load_tls_dict
 
 def SigQUIT(SIG, FRM):
     try:
@@ -73,7 +77,7 @@ class Process(object):
         reactor.run()
 
     def log(self, m):
-        if self.cfg.get('debug', False):
+        if self.cfg.get('debug', True):
             self._log('[%s:%d] %s\n' % (self.name, self.pid, m))
 
 
@@ -89,6 +93,7 @@ class CfgFDProcProtocol(ProcessProtocol):
 
     def connectionMade(self):
         self.transport.writeToChild(self.cfg_fd, self.cfg)
+
         self.transport.closeChildFD(self.cfg_fd)
 
         self.startup_promise.callback(None)
@@ -107,7 +112,76 @@ class CfgFDProcProtocol(ProcessProtocol):
 
 class HTTPSProcProtocol(CfgFDProcProtocol):
     def __init__(self, supervisor, cfg, cfg_fd=42):
+        # Clone the config
+        cfg = dict(cfg)
+
+        # Pass the unix control sock fd
+        cpanel_unix_sock = unix_sock_path()
+        cfg['unix_control_sock'] = cpanel_unix_sock
+        #cfg['unix_control_sock_fd'] = s.fileno()
+        print(cpanel_unix_sock)
+
+        #super(self.__class__, self).__init__(self, supervisor, cfg, cfg_fd)
+        # NOTE cannot use super here because old style objs
         CfgFDProcProtocol.__init__(self, supervisor, cfg, cfg_fd)
 
         for tls_socket_fd in cfg['tls_socket_fds']:
             self.fd_map[tls_socket_fd] = tls_socket_fd
+
+        # TODO use socket.fromfd from twisted.internet.tcp._fromListeningDescriptor
+        # to adopt the fd in the subprocess like twisted.internet.posixbase adoptStreamPort
+        # With the file descriptor already open, we can drop all perms on it as soon as the
+        # the client establishes a connection and change the user to nobody
+
+        self.cc = ControlClient(cpanel_unix_sock)
+        self.cc.cfg = cfg
+
+    @inlineCallbacks
+    def connectionMade(self):
+        CfgFDProcProtocol.connectionMade(self)
+        import time
+        time.sleep(5)
+        print('before connect and control')
+        self.cc.connect_and_control()
+
+        tls_cfg = yield tx_load_tls_dict() # TODO pass tid
+
+        for cfg in [tls_cfg]:
+            # Verify tls_cfg here
+            yield self.cc.add_tls_ctx(cfg)
+
+        print('after connect and control')
+        # TODO drop privileges here
+
+
+class ControlClient(object):
+    def __init__(self, sock_addr):
+        self.sock_addr = sock_addr
+
+    def connect_and_control(self):
+        clientfactory = pb.PBClientFactory()
+
+        reactor.connectUNIX(self.sock_addr, clientfactory)
+        d = clientfactory.getRootObject()
+        d.addCallback(self.attach_root)
+        #d.addCallback(self.send_shutdown_signal, 60)
+        return d
+
+    def attach_root(self, rootObj):
+        self.rootObj = rootObj
+
+    def send_msg(self, _):
+        print('' % obj)
+        d = self.rootObj.callRemote('do_noop', obj)
+        d.addCallback(self.get_msg)
+
+    def add_tls_ctx(self, tls_cfg):
+        d = self.rootObj.callRemote('add_context', tls_cfg)
+        d.addCallback(self.log_msg)
+
+    def log_msg(self, result):
+        log.debug('Child responded: %s' % result)
+
+    def send_shutdown_signal(self, _, t):
+        log.msg('Asking https server to shutdown')
+        self.rootObj.callRemote('shutdown', t)

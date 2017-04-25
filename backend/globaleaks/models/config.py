@@ -4,6 +4,7 @@ from storm.locals import Storm, Bool, Int, Unicode, JSON
 from globaleaks import __version__
 from globaleaks.models.models import ModelWithTID
 from globaleaks.utils.utility import log
+from globaleaks.orm import transact
 
 import config_desc
 from .config_desc import GLConfig
@@ -300,6 +301,11 @@ def update_defaults(store, tid):
     prv.set_val('version', __version__)
 
 
+@transact
+def tx_load_tls_dict(store, tid):
+    # TODO rename to load_tls_dict
+    return load_tls_dict(store, tid)
+
 def load_tls_dict(store, tid):
     '''
     A quick and dirty function to grab all of the tls config for use in subprocesses
@@ -314,5 +320,6 @@ def load_tls_dict(store, tid):
         'ssl_intermediate': privFact.get_val('https_chain'),
         'ssl_dh': privFact.get_val('https_dh_params'),
         'https_enabled': privFact.get_val('https_enabled'),
+        'commonname': NodeFactory(store).get_val('hostname'),
     }
     return tls_cfg
