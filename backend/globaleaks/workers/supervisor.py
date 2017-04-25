@@ -38,7 +38,7 @@ class ProcessSupervisor(object):
 
         self.worker_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'https_worker.py')
 
-        self.tls_cfg = {
+        self.proxy_cfg = {
             'proxy_ip': proxy_ip,
             'proxy_port': proxy_port,
             'debug': log.loglevel <= logging.DEBUG,
@@ -47,8 +47,7 @@ class ProcessSupervisor(object):
         if len(net_sockets) == 0:
             log.err("No ports to bind to! Spawning processes will not work!")
 
-        self.tls_cfg['tls_socket_fds'] = [ns.fileno() for ns in net_sockets]
-
+        self.proxy_cfg['tls_socket_fds'] = [ns.fileno() for ns in net_sockets]
 
     @transact
     def maybe_launch_https_workers(self, store):
@@ -65,7 +64,7 @@ class ProcessSupervisor(object):
             return
 
         db_cfg = load_tls_dict(store)
-        self.tls_cfg.update(db_cfg)
+        self.proxy_cfg.update(db_cfg)
 
         chnv = tls.ChainValidator()
         ok, err = chnv.validate(db_cfg, must_be_disabled=False)
@@ -88,9 +87,9 @@ class ProcessSupervisor(object):
         return d
 
     def launch_worker(self):
-        pp = HTTPSProcProtocol(self, self.tls_cfg)
-        reactor.spawnProcess(pp, executable, [executable, self.worker_path], childFDs=pp.fd_map, env=os.environ)
+        pp = HTTPSProcProtocol(self, self.proxy_cfg)
         self.tls_process_pool.append(pp)
+        reactor.spawnProcess(pp, executable, [executable, self.worker_path], childFDs=pp.fd_map, env=os.environ)
         log.info('Launched: %s' % (pp))
         return pp.startup_promise
 
