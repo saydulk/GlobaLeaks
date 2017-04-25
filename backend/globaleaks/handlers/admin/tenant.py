@@ -85,19 +85,21 @@ def admin_update_tenant(store, tid, request):
 
 def root_tenant_only(f):
     """
-    RequestHandler decorator that ensures the current user, passed tenant and
-    tenant to be edited satisfy the following checks:
-       - The root tenant is not edited
-       - The current session is editing from the root tenant
+    RequestHandler decorator that ensures that the function
+    is called from the root tenant on a different tenant.
     """
     def wrapper(obj, *args, **kwargs):
-        # Must be root tenant to edit config
+        # The function must be called from the root tenant.
         if not obj.tstate.id == ROOT_TENANT:
             raise errors.ForbiddenOperation()
-        # Cannot edit root tenant
+
+        # The function should be called on a different tenant
+        # from the root tenant.
         if kwargs.get('tenant_id', None) == str(ROOT_TENANT):
             raise errors.ForbiddenOperation()
+
         return f(obj, *args, **kwargs)
+
     return wrapper
 
 
