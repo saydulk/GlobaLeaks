@@ -15,6 +15,7 @@ from OpenSSL.SSL import Connection
 from twisted.internet.interfaces import IOpenSSLServerConnectionCreator
 
 from globaleaks.utils.tls import new_tls_context
+from globaleaks.utils.utility import log
 
 class _NegotiationData(object):
     """
@@ -137,16 +138,15 @@ class SNIMap(object):
         if common_name in self.mapping:
             newContext = self.mapping[common_name].getContext()
 
-            #negotiationData = self._negotiationDataForContext[connection.get_context()]
-            #negotiationData.negotiateNPN(newContext)
-            #negotiationData.negotiateALPN(newContext)
+            negotiationData = self._negotiationDataForContext[connection.get_context()]
+            negotiationData.negotiateNPN(newContext)
+            negotiationData.negotiateALPN(newContext)
             connection.set_context(newContext)
 
     def serverConnectionForTLS(self, protocol):
-        return Connection(self.context, None)
-        #return _ConnectionProxy(Connection(self.context, None), self)
+        #return Connection(self.context, None)
+        return _ConnectionProxy(Connection(self.context, None), self)
 
-    '''
     def _npnAdvertiseCallbackForContext(self, context, callback):
         self._negotiationDataForContext[context].npnAdvertiseCallback = (
             callback
@@ -161,10 +161,10 @@ class SNIMap(object):
     def _alpnProtocolsForContext(self, context, protocols):
         self._negotiationDataForContext[context].alpnProtocols = protocols
 
-    '''
     def add_new_context(self, common_name, ctx):
         # TODO if common_name is 'DEFAULT' throw up
         self.mapping[common_name] = ctx
+        log.msg('Added new context: %s' % common_name)
 
     def remove_old_context(self, common_name):
         # TODO if common_name is 'DEFAULT' throw up

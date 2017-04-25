@@ -207,6 +207,13 @@ class CertValidator(CtxValidator):
         # With the certificate loaded check if the key matches
         ctx.check_privatekey()
 
+        if x509.get_subject().commonName != cfg['commonname']:
+            raise ValidationError('Configured hostname does not match commonname in certificate')
+
+        # TODO according to RFC2818 best practice is to use SubjectAltName
+        # https://tools.ietf.org/html/rfc2818.html#section-3.1
+
+
 
 class ChainValidator(CtxValidator):
     parents = [PrivKeyValidator, CertValidator]

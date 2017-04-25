@@ -64,6 +64,7 @@ CREATE TABLE user (
     pgp_key_fingerprint TEXT NOT NULL,
     pgp_key_public TEXT NOT NULL,
     pgp_key_expiration INTEGER NOT NULL,
+    UNIQUE(mail_address),
     PRIMARY KEY (id)
 );
 

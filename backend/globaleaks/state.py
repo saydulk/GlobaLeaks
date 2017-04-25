@@ -82,6 +82,11 @@ class AppState(object):
     def db_refresh(self, store):
         tenants = store.find(models.Tenant, models.Tenant.active == True)
         self.tenant_hostname_id_map = {t.https_hostname: t.id for t in tenants}
+        if GLSettings.devel_mode:
+            for t in tenants:
+                dummy_https_hname = t.https_hostname.split(':')[0] + ':9443'
+                self.tenant_hostname_id_map[dummy_https_hname] = t.id
+
         tenants_ids = [t.id for t in tenants]
 
         to_remove = set(self.tenant_states.keys()) - set(tenants_ids)

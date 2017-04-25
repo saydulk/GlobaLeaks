@@ -65,7 +65,7 @@ class Config(ModelWithTID):
         return self.value['v']
 
     def __repr__(self):
-        return "<Config: %s.%s>" % (self.var_group, self.var_name)
+        return "<Config: %s.%s.%s>" % (self.tid, self.var_group, self.var_name)
 
 
 class ConfigFactory(object):
@@ -240,25 +240,6 @@ class PrivateFactory(ConfigFactory):
 
 factories = [NodeFactory, NotificationFactory, PrivateFactory]
 
-
-def load_tls_dict(store, tid):
-    '''
-    A quick and dirty function to grab all of the tls config for use in subprocesses
-    '''
-    privFact = PrivateFactory(store, tid)
-
-    # /START ssl_* is used here to indicate the quality of the implementation
-    # /END Tongue in cheek.
-    tls_cfg = {
-        'ssl_key': privFact.get_val('https_priv_key'),
-        'ssl_cert': privFact.get_val('https_cert'),
-        'ssl_intermediate': privFact.get_val('https_chain'),
-        'ssl_dh': privFact.get_val('https_dh_params'),
-        'https_enabled': privFact.get_val('https_enabled'),
-    }
-    return tls_cfg
-
-
 def db_create_config(store, tid):
     for gname, group in GLConfig.iteritems():
         for var_name, cfg_desc in group.iteritems():
@@ -306,6 +287,7 @@ def tx_load_tls_dict(store, tid):
     # TODO rename to load_tls_dict
     return load_tls_dict(store, tid)
 
+
 def load_tls_dict(store, tid):
     '''
     A quick and dirty function to grab all of the tls config for use in subprocesses
@@ -320,6 +302,6 @@ def load_tls_dict(store, tid):
         'ssl_intermediate': privFact.get_val('https_chain'),
         'ssl_dh': privFact.get_val('https_dh_params'),
         'https_enabled': privFact.get_val('https_enabled'),
-        'commonname': NodeFactory(store).get_val('hostname'),
+        'commonname': NodeFactory(store, tid).get_val('hostname'),
     }
     return tls_cfg

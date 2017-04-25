@@ -85,7 +85,6 @@ def db_update_node(store, tid, request, language):
     :param language: the language in which to localize data
     :return: a dictionary representing the serialization of the node
     """
-    tid = 1
     set_enabled_languages(store, tid, request['default_language'], request['languages_enabled'])
 
     if language in request['languages_enabled']:

@@ -13,36 +13,33 @@ from globaleaks.utils.sock import listen_tls_on_sock
 from globaleaks.utils.sni import SNIMap
 from globaleaks.utils.tls import TLSServerContextFactory, ChainValidator
 from globaleaks.utils.httpsproxy import HTTPStreamFactory
+from globaleaks.utils.utility import log
 
 class ControlPanel(pb.Root):
     tls_server = None
 
     def __init__(self, https_process):
-        print('Starting up')
         self.tls_server = https_process
 
     def remote_do_something(self, st):
-        print('printing: ', st)
-        return 'Success 200 OK!!'
+        return 'thee primitive allocates'
 
     def remote_shutdown(self, t):
         print('shutting down in %d' % t)
         reactor.callLater(t, reactor.stop)
 
     def remote_add_context(self, cfg):
-        print('adding tls context')
+        common_name = cfg['commonname']
+        self.tls_server.log('Adding TLS context: %s' % common_name)
         ctx = TLSServerContextFactory(cfg['ssl_key'],
                                       cfg['ssl_cert'],
                                       cfg['ssl_intermediate'],
                                       cfg['ssl_dh'])
-        #common_name = cfg['hostname']
-        common_name = 'gl.localhost'
         self.tls_server.snimap.add_new_context(common_name, ctx)
-        print('Finished adding conxtext')
-        return 'Success 200 OK!!'
+        self.tls_server.log('Finished adding conxtext')
+        return 'Success'
 
 
-print('starting')
 class HTTPSProcess(Process):
     name = 'gl-https-proxy'
     ports = []

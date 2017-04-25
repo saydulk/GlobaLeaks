@@ -348,6 +348,8 @@ def serialize_https_config_summary(store, tid):
 
 @transact
 def try_to_enable_https(store, tid):
+    # TODO use the enabled flag to choose whether or not to configure https for
+    # a specific tenant
     prv_fact = PrivateFactory(store, tid)
 
     cv = tls.ChainValidator()

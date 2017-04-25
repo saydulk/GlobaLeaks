@@ -11,9 +11,12 @@ from twisted.internet.defer import inlineCallbacks
 from twisted.internet.protocol import ProcessProtocol
 from twisted.spread import pb
 
+from globaleaks.handlers.admin.tenant import get_tenant_list
+from globaleaks.models.config import tx_load_tls_dict
+from globaleaks.utils import tls
 from globaleaks.utils.utility import log, randint
 from globaleaks.utils.sock import unix_sock_path
-from globaleaks.models.config import tx_load_tls_dict
+
 
 def SigQUIT(SIG, FRM):
     try:
@@ -119,7 +122,6 @@ class HTTPSProcProtocol(CfgFDProcProtocol):
         cpanel_unix_sock = unix_sock_path()
         cfg['unix_control_sock'] = cpanel_unix_sock
         #cfg['unix_control_sock_fd'] = s.fileno()
-        print(cpanel_unix_sock)
 
         #super(self.__class__, self).__init__(self, supervisor, cfg, cfg_fd)
         # NOTE cannot use super here because old style objs
@@ -139,18 +141,21 @@ class HTTPSProcProtocol(CfgFDProcProtocol):
     @inlineCallbacks
     def connectionMade(self):
         CfgFDProcProtocol.connectionMade(self)
-        import time
-        time.sleep(5)
-        print('before connect and control')
-        self.cc.connect_and_control()
+        yield self.cc.connect_and_control()
 
-        tls_cfg = yield tx_load_tls_dict() # TODO pass tid
+        tenants = yield get_tenant_list()
 
-        for cfg in [tls_cfg]:
-            # Verify tls_cfg here
-            yield self.cc.add_tls_ctx(cfg)
+        for tenant in tenants:
+            tls_cfg = yield tx_load_tls_dict(tenant['id'])
 
-        print('after connect and control')
+            chnv = tls.ChainValidator()
+            ok, err = chnv.validate(tls_cfg, must_be_disabled=False)
+            if not ok or err is not None:
+                log.debug('Skipping https setup for %s because: %s' % (tenant['label'], err))
+                continue
+
+            yield self.cc.add_tls_ctx(tls_cfg)
+
         # TODO drop privileges here
 
 
@@ -171,12 +176,12 @@ class ControlClient(object):
         self.rootObj = rootObj
 
     def send_msg(self, _):
-        print('' % obj)
         d = self.rootObj.callRemote('do_noop', obj)
         d.addCallback(self.get_msg)
 
     def add_tls_ctx(self, tls_cfg):
         d = self.rootObj.callRemote('add_context', tls_cfg)
+        log.debug('Adding certificate for %s' % tls_cfg['commonname'])
         d.addCallback(self.log_msg)
 
     def log_msg(self, result):
