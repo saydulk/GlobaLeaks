@@ -21,8 +21,6 @@ from globaleaks.utils.utility import log
 from globaleaks.constants import ROOT_TENANT
 from globaleaks.onion_services import db_configure_tor_hs
 
-from globaleaks.state import app_state
-
 
 def serialize_tenant(tenant):
     d = {
@@ -129,7 +127,7 @@ class TenantCollection(BaseHandler):
 
         response = yield create_tenant(request, load_appdata(), require_token=True)
 
-        yield app_state.refresh()
+        yield self.app_state.refresh()
 
         self.set_status(201) # Created
         self.write(response)
@@ -147,7 +145,7 @@ class TenantInstance(BaseHandler):
         """
         tenant_id = int(tenant_id)
         yield Tenant.delete(id=tenant_id)
-        yield app_state.refresh()
+        yield self.app_state.refresh()
 
     @inlineCallbacks
     @root_tenant_only
@@ -159,4 +157,4 @@ class TenantInstance(BaseHandler):
 
         tenant_id = int(tenant_id)
         yield admin_update_tenant(tenant_id, request)
-        yield app_state.refresh()
+        yield self.app_state.refresh()

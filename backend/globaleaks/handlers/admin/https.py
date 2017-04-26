@@ -386,7 +386,7 @@ class ConfigHandler(BaseHandler):
             self.tstate.memc.private.https_enabled = True
 
             # TODO(tid_me) only let root_tenant launch workers
-            yield app_state.process_supervisor.maybe_launch_https_workers()
+            yield self.app_state.process_supervisor.maybe_launch_https_workers()
             self.set_status(200)
         except Exception as e:
             log.err(e)
@@ -404,7 +404,7 @@ class ConfigHandler(BaseHandler):
         self.tstate.memc.private.https_enabled = False
 
         # TODO(tid_me) only let root_tenant launch workers
-        yield app_state.process_supervisor.shutdown()
+        yield self.app_state.process_supervisor.shutdown()
         self.set_status(200)
 
 

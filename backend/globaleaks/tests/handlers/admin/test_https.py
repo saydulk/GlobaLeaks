@@ -16,11 +16,6 @@ from globaleaks.tests.utils import test_tls
 # NOTE test modifies global state
 from globaleaks.state import app_state
 
-@transact
-def set_dh_params(store, dh_params):
-    PrivateFactory(store, app_state.root_id).set_val('https_dh_params', dh_params)
-
-
 class TestFileHandler(helpers.TestHandler):
     _handler = https.FileHandler
 
@@ -29,7 +24,8 @@ class TestFileHandler(helpers.TestHandler):
         yield super(TestFileHandler, self).setUp()
 
         self.valid_setup = test_tls.get_valid_setup()
-        yield set_dh_params(self.valid_setup['dh_params'])
+        yield test_tls.commit_prereq_config(self.valid_setup['dh_params'],
+                                            self.valid_setup['commonname'])
 
     @inlineCallbacks
     def is_set(self, name, is_set):
@@ -148,7 +144,8 @@ class TestConfigHandler(helpers.TestHandler):
     def test_all_methods(self):
         valid_setup = test_tls.get_valid_setup()
 
-        yield set_dh_params(valid_setup['dh_params'])
+        yield test_tls.commit_prereq_config(valid_setup['dh_params'],
+                                            valid_setup['commonname'])
         yield https.PrivKeyFileRes.create_file(app_state.root_id, valid_setup['key'])
         yield https.CertFileRes.create_file(app_state.root_id, valid_setup['cert'])
         yield https.ChainFileRes.create_file(app_state.root_id, valid_setup['chain'])
@@ -159,6 +156,8 @@ class TestConfigHandler(helpers.TestHandler):
         self.assertTrue(len(self.responses[-1]['status']['msg']) > 0)
 
         # Config is ready to go. So launch the subprocesses.
+        # TODO this post and the second with enable fires an exception with no such file or dir....
+        # TODO TODO TODO
         yield handler.post()
         yield handler.get()
         self.assertTrue(self.responses[-1]['enabled'])
@@ -180,7 +179,8 @@ class TestCSRHandler(helpers.TestHandler):
         n = 'csr'
 
         valid_setup = test_tls.get_valid_setup()
-        yield set_dh_params(valid_setup['dh_params'])
+        yield test_tls.commit_prereq_config(valid_setup['dh_params'],
+                                            valid_setup['commonname'])
         yield https.PrivKeyFileRes.create_file(app_state.root_id, valid_setup['key'])
 
         d = {

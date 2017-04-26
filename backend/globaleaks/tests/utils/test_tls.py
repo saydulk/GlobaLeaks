@@ -3,8 +3,9 @@ import os
 from twisted.trial.unittest import TestCase
 
 from globaleaks.constants import ROOT_TENANT
-from globaleaks.models.config import PrivateFactory
+from globaleaks.models.config import PrivateFactory, NodeFactory
 from globaleaks.orm import transact
+from globaleaks.state import app_state
 from globaleaks.utils import tls
 
 from globaleaks.tests import helpers
@@ -21,24 +22,36 @@ def get_valid_setup():
         'key': 'priv_key.pem',
         'cert': 'cert.pem',
         'chain': 'chain.pem',
-        'dh_params': 'dh_params.pem'
+        'dh_params': 'dh_params.pem',
     }
 
-    return {
+    dct = {
         k : open(os.path.join(test_data_dir, 'valid', fname), 'r').read() \
             for k, fname in valid_setup_files.iteritems()
     }
+    dct['commonname'] = 'www.globaleaks.org'
+    return dct
 
 @transact
-def commit_valid_config(store):
+def commit_all_valid_config(store):
     cfg = get_valid_setup()
 
+    db_commit_prereq_config(store, cfg['dh_params'], cfg['commonname'])
+
     priv_fact = PrivateFactory(store, ROOT_TENANT)
-    priv_fact.set_val('https_dh_params', cfg['dh_params'])
     priv_fact.set_val('https_priv_key', cfg['key'])
     priv_fact.set_val('https_cert', cfg['cert'])
     priv_fact.set_val('https_chain', cfg['chain'])
     priv_fact.set_val('https_enabled', True)
+
+@transact
+def commit_prereq_config(*args, **kwargs):
+    '''The minimum config needed just to have the unittests execute'''
+    return db_commit_prereq_config(*args, **kwargs)
+
+def db_commit_prereq_config(store, dh_params, commonname):
+    NodeFactory(store, ROOT_TENANT).set_val('hostname', commonname)
+    PrivateFactory(store, app_state.root_id).set_val('https_dh_params', dh_params)
 
 
 class TestObjectValidators(TestCase):
