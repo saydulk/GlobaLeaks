@@ -87,8 +87,8 @@ class GLService(service.Service):
 
     @defer.inlineCallbacks
     def _start(self):
-        GLSettings.orm_tp.start()
-        reactor.addSystemEventTrigger('after', 'shutdown', GLSettings.orm_tp.stop)
+        app_state.orm_tp.start()
+        reactor.addSystemEventTrigger('after', 'shutdown', app_state.orm_tp.stop)
         api_factory = api.get_api_factory(app_state)
 
         yield configure_tor_hs(app_state.root_id, GLSettings.bind_port)
@@ -96,11 +96,11 @@ class GLService(service.Service):
         for sock in GLSettings.http_socks:
             listen_tcp_on_sock(reactor, sock.fileno(), api_factory)
 
-        GLSettings.state.process_supervisor = ProcessSupervisor(GLSettings.https_socks,
-                                                                '127.0.0.1',
-                                                                GLSettings.bind_port)
+        app_state.process_supervisor = ProcessSupervisor(GLSettings.https_socks,
+                                                         '127.0.0.1',
+                                                         GLSettings.bind_port)
 
-        yield GLSettings.state.process_supervisor.maybe_launch_https_workers()
+        yield app_state.process_supervisor.maybe_launch_https_workers()
 
         self.start_jobs()
 

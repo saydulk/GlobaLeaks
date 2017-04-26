@@ -14,8 +14,6 @@ import sys
 from distutils import dir_util # pylint: disable=no-name-in-module
 from optparse import OptionParser
 
-from twisted.python.threadpool import ThreadPool
-
 from globaleaks import __version__, DATABASE_VERSION
 from globaleaks.utils.objectdict import ObjectDict
 from globaleaks.utils.singleton import Singleton
@@ -66,9 +64,6 @@ class GLSettingsClass(object):
 
         # daemonize the process
         self.nodaemon = False
-
-        # thread pool size of 1
-        self.orm_tp = ThreadPool(1, 1)
 
         self.bind_address = '0.0.0.0'
 
@@ -189,12 +184,6 @@ class GLSettingsClass(object):
 
         self.https_socks = []
         self.http_socks = []
-
-        # TODO holds global state until GLSettings is inverted and this
-        # state managed as an object by the application
-        self.state = ObjectDict()
-        self.state.process_supervisor = None
-        self.state.tor_exit_set = TorExitSet()
 
     def reset_hourly(self):
         self.RecentEventQ[:] = []

@@ -329,7 +329,7 @@ class FileHandler(BaseHandler):
 
 
 @transact
-def serialize_https_config_summary(store, tid):
+def serialize_https_config_summary(store, tid, app_state):
     prv_fact = PrivateFactory(store, tid)
 
     file_summaries = {}
@@ -339,8 +339,8 @@ def serialize_https_config_summary(store, tid):
 
     ret = {
       'enabled': prv_fact.get_val('https_enabled'),
-      'running': GLSettings.state.process_supervisor.is_running(),
-      'status': GLSettings.state.process_supervisor.get_status(),
+      'running': app_state.process_supervisor.is_running(),
+      'status': app_state.process_supervisor.get_status(),
       'files': file_summaries,
     }
     return ret
@@ -348,7 +348,7 @@ def serialize_https_config_summary(store, tid):
 
 @transact
 def try_to_enable_https(store, tid):
-    # TODO use the enabled flag to choose whether or not to configure https for
+    # TODO(tid_me) use the enabled flag to choose whether or not to configure https for
     # a specific tenant
     prv_fact = PrivateFactory(store, tid)
 
@@ -373,7 +373,7 @@ class ConfigHandler(BaseHandler):
     @BaseHandler.authenticated('admin')
     @inlineCallbacks
     def get(self):
-        https_cfg = yield serialize_https_config_summary(self.current_tenant)
+        https_cfg = yield serialize_https_config_summary(self.current_tenant, self.app_state)
         self.write(https_cfg)
 
     @BaseHandler.transport_security_check('admin')
@@ -385,7 +385,8 @@ class ConfigHandler(BaseHandler):
             yield try_to_enable_https(self.current_tenant)
             self.tstate.memc.private.https_enabled = True
 
-            yield GLSettings.state.process_supervisor.maybe_launch_https_workers()
+            # TODO(tid_me) only let root_tenant launch workers
+            yield app_state.process_supervisor.maybe_launch_https_workers()
             self.set_status(200)
         except Exception as e:
             log.err(e)
@@ -402,7 +403,8 @@ class ConfigHandler(BaseHandler):
         yield disable_https(self.current_tenant)
         self.tstate.memc.private.https_enabled = False
 
-        yield GLSettings.state.process_supervisor.shutdown()
+        # TODO(tid_me) only let root_tenant launch workers
+        yield app_state.process_supervisor.shutdown()
         self.set_status(200)
 
 

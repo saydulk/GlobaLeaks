@@ -230,7 +230,7 @@ class TestGL(unittest.TestCase):
         yield app_state.refresh()
 
         sup = ProcessSupervisor([], '127.0.0.1', 18082)
-        GLSettings.state.process_supervisor = sup
+        app_state.process_supervisor = sup
 
         Alarm.reset()
         event.EventTrackQueue.clear()

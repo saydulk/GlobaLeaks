@@ -1,3 +1,5 @@
+from twisted.python.threadpool import ThreadPool
+
 from globaleaks.constants import ROOT_TENANT
 from globaleaks.utils.tor_exit_set import TorExitSet
 from globaleaks import LANGUAGES_SUPPORTED_CODES, models
@@ -52,6 +54,9 @@ class TenantState(object):
 class AppState(object):
     def __init__(self):
         self.process_supervisor = None
+
+        # thread pool size of 1
+        self.orm_tp = ThreadPool(1, 1)
 
         self.tor_exit_set = TorExitSet()
         self.jobs = []
