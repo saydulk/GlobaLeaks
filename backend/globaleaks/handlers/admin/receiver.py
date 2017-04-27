@@ -7,8 +7,8 @@
 from twisted.internet.defer import inlineCallbacks
 
 from globaleaks import models
+from globaleaks.acl import db_access_receiver, db_access_tenant
 from globaleaks.handlers.admin.context import db_associate_receiver_contexts
-from globaleaks.handlers.admin.user import db_create_receiver
 from globaleaks.handlers.base import BaseHandler
 from globaleaks.handlers.public import db_prepare_receivers_serialization
 from globaleaks.handlers.user import user_serialize_user
@@ -21,13 +21,16 @@ from globaleaks.utils.structures import fill_localized_keys, get_localized_value
 from globaleaks.state import app_state
 
 
-def admin_serialize_receiver(store, receiver, data, language):
+def admin_serialize_receiver(store, receiver, language, data = None):
     """
     Serialize the specified receiver
 
     :param language: the language in which to localize data
     :return: a dictionary representing the serialization of the receiver
     """
+    if data is None:
+        data = db_prepare_receivers_serialization(store, [receiver])
+
     ret_dict = user_serialize_user(store, receiver.user, language)
 
     ret_dict.update({
@@ -52,35 +55,25 @@ def db_get_usermodel(store, model, id):
     return store.find(model, id = id).one()
 
 @transact
-def get_receiver_list(store, tid, language):
+def get_receiver_list(store, rstate, language):
     """
     Returns:
         (list) the list of receivers
     """
-    receivers = db_get_usermodel_list(store, models.Receiver, tid)
+    db_access_tenant(store, rstate, rstate.tid)
+
+    receivers = db_get_usermodel_list(store, models.Receiver, rstate.tid)
 
     data = db_prepare_receivers_serialization(store, receivers)
 
-    return [admin_serialize_receiver(store, receiver, data, language) for receiver in receivers]
-
-
-@transact
-def create_receiver(store, tid, request, language):
-    request['tip_expiration_threshold'] = app_state.get_root_tenant().memc.notif.tip_expiration_threshold
-    receiver = db_create_receiver(store, tid, request, language)
-
-    data = db_prepare_receivers_serialization(store, [receiver])
-
-    return admin_serialize_receiver(store, receiver, data, language)
+    return [admin_serialize_receiver(store, receiver, language, data) for receiver in receivers]
 
 
 @transact
 def get_receiver(store, receiver_id, language):
     receiver = db_get_usermodel(store, models.Receiver, receiver_id)
 
-    data = db_prepare_receivers_serialization(store, [receiver])
-
-    return admin_serialize_receiver(store, receiver, data, language)
+    return admin_serialize_receiver(store, receiver, language)
 
 
 @transact
@@ -98,9 +91,7 @@ def update_receiver(store, tid, receiver_id, request, language):
 
     db_associate_receiver_contexts(store, receiver, request['contexts'])
 
-    data = db_prepare_receivers_serialization(store, [receiver])
-
-    return admin_serialize_receiver(store, receiver, data, language)
+    return admin_serialize_receiver(store, receiver, language)
 
 
 class ReceiversCollection(BaseHandler):
@@ -115,7 +106,7 @@ class ReceiversCollection(BaseHandler):
         Response: adminReceiverList
         Errors: None
         """
-        response = yield get_receiver_list(self.current_tenant,
+        response = yield get_receiver_list(self.req_state,
                                            self.request.language)
 
         self.write(response)
@@ -159,5 +150,4 @@ class ReceiverInstance(BaseHandler):
 
         GLApiCache.invalidate(self.current_tenant)
 
-        self.set_status(201)
         self.write(response)

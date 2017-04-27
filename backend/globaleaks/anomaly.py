@@ -18,7 +18,7 @@ from globaleaks import models
 from globaleaks.event import EventTrackQueue
 from globaleaks.handlers.admin.node import db_admin_serialize_node
 from globaleaks.handlers.admin.notification import db_get_notification
-from globaleaks.handlers.admin.user import db_get_admin_users
+from globaleaks.handlers.admin.user import db_system_get_admin_users
 from globaleaks.orm import transact
 from globaleaks.rest.apicache import GLApiCache
 from globaleaks.state import app_state
@@ -240,7 +240,7 @@ class AlarmClass(object):
 
         @transact
         def _generate_admin_alert_mail(store, alert):
-            for user_desc in db_get_admin_users(store, app_state.root_id):
+            for user_desc in db_system_get_admin_users(store, app_state.root_id):
                 user_language = user_desc['language']
 
                 data = {

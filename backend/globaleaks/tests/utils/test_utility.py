@@ -3,7 +3,6 @@ import re
 import sys
 
 from datetime import datetime
-from twisted.python.failure import Failure
 from twisted.trial import unittest
 
 from globaleaks.utils import utility
@@ -147,12 +146,9 @@ class TestLogging(unittest.TestCase):
         observer.start()
 
         # Manually emit logs
-        e1 = {'time': 100000, 'message': 'x', 'system': 'ut'}
-        observer.emit(e1)
-
-        f = Failure(IOError('This is a mock failure'))
-        e2 = {'time': 100001, 'message': 'x', 'system': 'ut', 'failure': f}
-        observer.emit(e2)
+        for i in range(0, 10):
+            e = {'time': 100000, 'message': 'x', 'system': 'ut'}
+            observer.emit(e)
 
         # Emit logs through twisted's interface. Import is required now b/c of stdout hack
         from twisted.python import log as twlog
@@ -165,5 +161,5 @@ class TestLogging(unittest.TestCase):
         # A bit of a mess, but this is the format we are expecting.
         gex = r".+ \[ut\] x\n"
         m = re.findall(gex, s)
-        self.assertTrue(len(m) == 2)
+        self.assertTrue(len(m) == 10)
         self.assertTrue(s.endswith("[-] msg-msg\n"))

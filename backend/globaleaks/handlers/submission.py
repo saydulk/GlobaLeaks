@@ -419,5 +419,4 @@ class SubmissionInstance(BaseHandler):
         # Delete the token only when a valid submission has been stored in the DB
         TokenList.delete(token_id)
 
-        self.set_status(202)  # Updated, also if submission if effectively created (201)
         self.write(submission)

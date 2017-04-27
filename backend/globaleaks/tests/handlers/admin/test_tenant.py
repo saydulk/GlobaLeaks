@@ -15,11 +15,11 @@ class TestStateChanges(helpers.TestGL):
     @inlineCallbacks
     def test_get(self):
         for i in range(3):
-            yield tenant.create_tenant({'label': 'tenant-%i' % i}, load_appdata())
+            yield tenant.create_tenant({'label': 'tenant-%i' % i, 'active': True}, load_appdata())
 
     @inlineCallbacks
     def test_delete(self):
-        tenant_desc = yield tenant.create_tenant({'label': 'tenant-xxx'}, load_appdata())
+        tenant_desc = yield tenant.create_tenant({'label': 'tenant-xxx', 'active': True}, load_appdata())
 
     @inlineCallbacks
     def test_init_and_refresh_app_state(self):
@@ -33,7 +33,7 @@ class TestStateChanges(helpers.TestGL):
         self.assertEqual(len(app_state.tenant_states), 1)
 
         # Add another tenant to the system
-        new_ten = db_create_tenant(store, {'label': 'tn2.localhost:8082'}, load_appdata())
+        new_ten = db_create_tenant(store, {'label': 'tn2.localhost:8082', 'active': True}, load_appdata())
 
         app_state.db_refresh(store)
 

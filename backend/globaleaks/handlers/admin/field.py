@@ -10,6 +10,7 @@ from storm.expr import And, Not, In, Or
 from twisted.internet.defer import inlineCallbacks
 
 from globaleaks import models
+from globaleaks.acl import db_access_field
 from globaleaks.constants import ROOT_TENANT
 from globaleaks.handlers.base import BaseHandler
 from globaleaks.handlers.public import serialize_field, db_prepare_fields_serialization
@@ -18,6 +19,7 @@ from globaleaks.rest import errors, requests
 from globaleaks.rest.apicache import GLApiCache
 from globaleaks.utils.structures import fill_localized_keys
 from globaleaks.utils.utility import log
+
 
 def db_import_fields(store, step, fieldgroup, fields):
     for field in fields:
@@ -161,12 +163,12 @@ def create_field(store, tid, field_dict, language, request_type=None):
     """
     field = db_create_field(store, tid, field_dict, language if request_type != 'import' else None)
 
-    data = db_prepare_fields_serialization(store, [field])
-
-    return serialize_field(store, field, data, language)
+    return serialize_field(store, field, language)
 
 
-def db_update_field(store, tid, field_id, field_dict, language):
+def db_update_field(store, rstate, field_id, field_dict, language):
+    print db_access_field(store, rstate, field_id)
+
     field = store.find(models.Field, id=field_id).one()
     if not field:
         raise errors.FieldIdNotFound
@@ -212,7 +214,7 @@ def db_update_field(store, tid, field_id, field_dict, language):
 
 
 @transact
-def update_field(store, tid, field_id, field, language, request_type=None):
+def update_field(store, rstate, field_id, field, language, request_type=None):
     """
     Update the specified field with the details.
     raises :class:`globaleaks.errors.FieldIdNotFound` if the field does
@@ -224,11 +226,9 @@ def update_field(store, tid, field_id, field, language, request_type=None):
     :param language: the language of the field definition dict
     :return: a serialization of the object
     """
-    field = db_update_field(store, tid, field_id, field, language if request_type != 'import' else None)
+    field = db_update_field(store, rstate, field_id, field, language if request_type != 'import' else None)
 
-    data = db_prepare_fields_serialization(store, [field])
-
-    return serialize_field(store, field, data, language)
+    return serialize_field(store, field, language)
 
 
 @transact
@@ -244,9 +244,7 @@ def get_field(store, tid, field_id, language, request_type=None):
     """
     field = models.Field.db_get(store, id=field_id)
 
-    data = db_prepare_fields_serialization(store, [field])
-
-    return serialize_field(store, field, data, language if request_type != 'export' else None)
+    return serialize_field(store, field, language if request_type != 'export' else None)
 
 
 @transact
@@ -309,7 +307,7 @@ def get_fieldtemplate_list(store, tid, language, request_type=None):
 
     data = db_prepare_fields_serialization(store, templates)
 
-    return [serialize_field(store, t, data, language) for t in templates]
+    return [serialize_field(store, t, language, data) for t in templates]
 
 
 class FieldTemplatesCollection(BaseHandler):
@@ -340,16 +338,13 @@ class FieldTemplatesCollection(BaseHandler):
         """
         Create a new field template.
         """
-        validator = requests.AdminFieldDesc if self.request.language is not None else requests.AdminFieldDescRaw
-
-        request = self.validate_message(self.request.body, validator)
+        request = self.validate_message(self.request.body, requests.AdminFieldDesc)
 
         response = yield create_field(self.current_tenant,
                                       request,
                                       self.request.language,
                                       self.request.request_type)
 
-        self.set_status(201)
         self.write(response)
 
 
@@ -386,7 +381,7 @@ class FieldTemplateInstance(BaseHandler):
         request = self.validate_message(self.request.body,
                                         requests.AdminFieldDesc)
 
-        response = yield update_field(self.current_tenant,
+        response = yield update_field(self.req_state,
                                       field_id,
                                       request,
                                       self.request.language,
@@ -394,7 +389,6 @@ class FieldTemplateInstance(BaseHandler):
 
         GLApiCache.invalidate(self.current_tenant)
 
-        self.set_status(202) # Updated
         self.write(response)
 
     @BaseHandler.transport_security_check('admin')
@@ -439,7 +433,6 @@ class FieldCollection(BaseHandler):
 
         GLApiCache.invalidate(self.current_tenant)
 
-        self.set_status(201)
         self.write(response)
 
 
@@ -487,7 +480,7 @@ class FieldInstance(BaseHandler):
         request = self.validate_message(self.request.body,
                                         requests.AdminFieldDesc)
 
-        response = yield update_field(self.current_tenant,
+        response = yield update_field(self.req_state,
                                       field_id,
                                       request,
                                       self.request.language,
@@ -495,7 +488,6 @@ class FieldInstance(BaseHandler):
 
         GLApiCache.invalidate(self.current_tenant)
 
-        self.set_status(202) # Updated
         self.write(response)
 
     @BaseHandler.transport_security_check('admin')

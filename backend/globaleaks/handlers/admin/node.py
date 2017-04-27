@@ -148,5 +148,4 @@ class NodeInstance(BaseHandler):
 
         yield app_state.refresh()
 
-        self.set_status(202) # Updated
         self.write(node_description)

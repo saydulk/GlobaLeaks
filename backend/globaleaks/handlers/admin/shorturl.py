@@ -59,7 +59,6 @@ class ShortURLCollection(BaseHandler):
 
         response = yield create_shorturl(self.current_tenant, request)
 
-        self.set_status(201) # Created
         self.write(response)
 
 

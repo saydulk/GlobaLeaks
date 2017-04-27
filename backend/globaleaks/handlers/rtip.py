@@ -441,9 +441,6 @@ class RTipInstance(BaseHandler):
                 # Elements of internal_var_lst are not stored in the receiver's tip table
                 yield set_internaltip_variable(self.tstate, self.current_user.user_id, tip_id, key, value)
 
-        # TODO A 202 is returned regardless of whether or not an update was performed.
-        self.set_status(202)  # Updated
-
     @BaseHandler.transport_security_check('receiver')
     @BaseHandler.authenticated('receiver')
     @inlineCallbacks
@@ -474,7 +471,6 @@ class RTipCommentCollection(BaseHandler):
 
         answer = yield create_comment(self.current_user.user_id, tip_id, request)
 
-        self.set_status(201)  # Created
         self.write(answer)
 
 
@@ -495,7 +491,6 @@ class ReceiverMsgCollection(BaseHandler):
 
         message = yield create_message(self.current_user.user_id, tip_id, request)
 
-        self.set_status(201)  # Created
         self.write(message)
 
 
@@ -563,8 +558,6 @@ class WhistleblowerFileHandler(BaseHandler):
             yield register_wbfile_on_db(uploaded_file, rtip['id'])
         except Exception as excep:
             raise errors.InternalServerError("Unable to accept new files: %s" % excep)
-
-        self.set_status(201)  # Created
 
 
 class WhistleblowerFileInstanceHandler(BaseHandler):
@@ -680,5 +673,4 @@ class IdentityAccessRequestsCollection(BaseHandler):
                                                                    request,
                                                                    self.request.language)
 
-        self.set_status(201)
         self.write(identityaccessrequest)

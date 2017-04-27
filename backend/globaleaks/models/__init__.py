@@ -130,11 +130,12 @@ class Context(ModelWithIDandTID):
 
     questionnaire_id = Unicode()
 
-    unicode_keys = ['tid', 'questionnaire_id']
+    unicode_keys = ['questionnaire_id']
 
     localized_keys = ['name', 'description', 'recipients_clarification', 'status_page_message']
 
     int_keys = [
+      'tid',
       'tip_timetolive',
       'maximum_selectable_receivers',
       'presentation_order',
@@ -787,6 +788,14 @@ User.tenants = ReferenceSet(
     User_Tenant.tenant_id,
     Tenant.id
 )
+
+Questionnaire.tenants = ReferenceSet(
+    Questionnaire.id,
+    Questionnaire_Tenant.questionnaire_id,
+    Questionnaire_Tenant.tenant_id,
+    Tenant.id
+)
+
 
 Tenant.users = ReferenceSet(
     Tenant.id,

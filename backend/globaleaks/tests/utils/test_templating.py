@@ -17,8 +17,8 @@ class notifTemplateTest(helpers.TestGLWithPopulatedDB):
 
         data = {}
         data['type'] = 'tip'
-        data['receiver'] = yield admin.receiver.get_receiver(self.dummyReceiver_1['id'], 'en')
-        data['context'] = yield admin.context.get_context(app_state.root_id, self.dummyContext['id'], 'en')
+        data['receiver'] = self.dummyReceiver_1
+        data['context'] = self.dummyContext
         data['notification'] = yield admin.notification.get_notification(app_state.root_id, 'en')
         data['node'] = yield admin.node.admin_serialize_node(app_state.root_id, 'en')
 

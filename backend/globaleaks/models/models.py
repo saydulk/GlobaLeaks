@@ -78,6 +78,11 @@ class Model(Storm):
 
     @classmethod
     @transact
+    def get(store, cls, *args, **kwargs):
+        return cls.db_get(store, *args, **kwargs)
+
+    @classmethod
+    @transact
     def test(store, cls, *args, **kwargs):
         try:
             cls.db_get(store, *args, **kwargs)
@@ -107,6 +112,7 @@ class Model(Storm):
         # harder better faster stronger
         if isinstance(value, str):
             value = unicode(value)
+
         return super(Model, self).__setattr__(name, value)
 
     def dict(self, *keys):
@@ -121,8 +127,8 @@ class Model(Storm):
         not_allowed_keys = keys - self._public_attrs
         if not_allowed_keys:
             raise KeyError('Invalid keys: {}'.format(not_allowed_keys))
-        else:
-            return {key: getattr(self, key) for key in keys & self._public_attrs}
+
+        return {key: getattr(self, key) for key in keys & self._public_attrs}
 
 
 class ModelWithID(Model):

@@ -78,6 +78,7 @@ class AppState(object):
         self.root_id = ROOT_TENANT
         self.tenant_states = dict()
         self.tenant_hostname_id_map = dict()
+        self.user_tenant_map = dict()
 
     def db_refresh(self, store):
         tenants = store.find(models.Tenant, models.Tenant.active == True)
@@ -94,6 +95,13 @@ class AppState(object):
                 self.tenant_states[tid] = TenantState(store, tid)
             else:
                 self.tenant_states[tid].db_refresh(store)
+
+        self.user_tenant_map = {}
+        uts = store.find(models.User_Tenant)
+        for ut in uts:
+            if ut.user_id not in self.user_tenant_map:
+                self.user_tenant_map[ut.user_id] = []
+            self.user_tenant_map[ut.user_id].append(ut.tenant_id)
 
         self.memc = self.tenant_states[self.root_id].memc
 

@@ -63,6 +63,9 @@ def serialize_context(store, context, data, language):
     @return: a dict describing the contexts available for submission,
         (e.g. checks if almost one receiver is associated)
     """
+    if data is None:
+        data = db_prepare_contexts_serialization(store, [context])
+
     img = data['imgs'][context.id]
 
     ret_dict = {
@@ -246,7 +249,7 @@ def db_prepare_fields_serialization(store, fields):
     return ret
 
 
-def serialize_field(store, field, data, language):
+def serialize_field(store, field, language, data=None):
     """
     Serialize a field, localizing its content depending on the language.
 
@@ -254,6 +257,9 @@ def serialize_field(store, field, data, language):
     :param language: the language in which to localize data
     :return: a serialization of the object
     """
+    if data is None:
+        data = db_prepare_fields_serialization(store, [field])
+
     if field.template_id:
         f_to_serialize = field.template
     else:
@@ -284,7 +290,7 @@ def serialize_field(store, field, data, language):
         'triggered_by_options': triggered_by_options,
         'attrs': {a.name: serialize_field_attr(a, language) for a in data['attrs'][f_to_serialize.id]},
         'options': [serialize_field_option(o, language) for o in data['options'][f_to_serialize.id]],
-        'children': [serialize_field(store, f, data, language) for f in data['fields'][f_to_serialize.id]]
+        'children': [serialize_field(store, f, language, data) for f in data['fields'][f_to_serialize.id]]
     }
 
     return get_localized_values(ret_dict, f_to_serialize, field.localized_keys, language)
@@ -311,7 +317,7 @@ def serialize_step(store, step, language):
         'presentation_order': step.presentation_order,
         'triggered_by_score': step.triggered_by_score,
         'triggered_by_options': triggered_by_options,
-        'children': [serialize_field(store, f, data, language) for f in step.children]
+        'children': [serialize_field(store, f, language, data) for f in step.children]
     }
 
     return get_localized_values(ret_dict, step, step.localized_keys, language)

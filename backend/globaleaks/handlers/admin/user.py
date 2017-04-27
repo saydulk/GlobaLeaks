@@ -7,6 +7,7 @@
 from twisted.internet.defer import inlineCallbacks
 
 from globaleaks import models, security
+from globaleaks.acl import db_access_user, db_access_tenant
 from globaleaks.handlers.admin.context import db_associate_receiver_contexts
 from globaleaks.handlers.base import BaseHandler
 from globaleaks.handlers.user import apply_pgp_options, user_serialize_user
@@ -16,74 +17,6 @@ from globaleaks.rest.apicache import GLApiCache
 from globaleaks.utils.structures import fill_localized_keys
 from globaleaks.utils.utility import log, datetime_now
 from globaleaks.state import app_state
-
-
-def db_create_admin_user(store, tid, request, language):
-    """
-    Creates a new admin
-    Returns:
-        (dict) the admin descriptor
-    """
-    user = db_create_user(store, tid, request, language)
-
-    log.debug("Created new admin")
-
-    return user
-
-
-@transact
-def create_admin_user(store, tid, request, language):
-    new_admin = db_create_admin_user(store, tid, request, language)
-    return user_serialize_user(store, new_admin, language)
-
-
-def db_create_custodian_user(store, tid, request, language):
-    """
-    Creates a new custodian
-    Returns:
-        (dict) the custodian descriptor
-    """
-    user = db_create_user(store, tid, request, language)
-
-    log.debug("Created new custodian")
-
-    return user
-
-
-@transact
-def create_custodian_user(store, tid, request, language):
-    new_custodian = db_create_custodian_user(store, tid, request, language)
-    return user_serialize_user(store, new_custodian, language)
-
-
-def db_create_receiver(store, tid, request, language):
-    """
-    Creates a new receiver
-    Returns:
-        (dict) the receiver descriptor
-    """
-    user = db_create_user(store, tid, request, language)
-
-    fill_localized_keys(request, models.Receiver.localized_keys, language)
-
-    receiver = models.Receiver(request)
-
-    # set receiver.id user.id
-    receiver.id = user.id
-
-    store.add(receiver)
-
-    db_associate_receiver_contexts(store, receiver, request['contexts'])
-
-    log.debug("Created new receiver")
-
-    return receiver
-
-
-@transact
-def create_receiver_user(store, tid, request, language):
-    new_receiver = db_create_receiver(store, tid, request, language)
-    return user_serialize_user(store, new_receiver.user, language)
 
 
 def db_create_user(store, tid, request, language):
@@ -122,13 +55,42 @@ def db_create_user(store, tid, request, language):
     return user
 
 
-def db_admin_update_user(store, tid, user_id, request, language):
+def db_create_receiver(store, tid, request, language):
+    """
+    Creates a new receiver
+    Returns:
+        (dict) the receiver descriptor
+    """
+    user = db_create_user(store, tid, request, language)
+
+    fill_localized_keys(request, models.Receiver.localized_keys, language)
+
+    receiver = models.Receiver(request)
+
+    # set receiver.id user.id
+    receiver.id = user.id
+
+    store.add(receiver)
+
+    db_associate_receiver_contexts(store, receiver, request['contexts'])
+
+    log.debug("Created new receiver")
+
+    return receiver
+
+
+@transact
+def create_receiver_user(store, tid, request, language):
+    receiver = db_create_receiver(store, tid, request, language)
+    return user_serialize_user(store, receiver.user, language)
+
+
+
+def db_update_user(store, user, request, language):
     """
     Updates the specified user.
     raises: globaleaks.errors.UserIdNotFound` if the user does not exist.
     """
-    user = db_get_user(store, tid, user_id)
-
     fill_localized_keys(request, models.User.localized_keys, language)
 
     apply_pgp_options(request)
@@ -144,24 +106,22 @@ def db_admin_update_user(store, tid, user_id, request, language):
 
 
 @transact
-def admin_update_user(store, tid, user_id, request, language):
-    user = db_admin_update_user(store, tid, user_id, request, language)
+def update_user(store, rstate, user_id, request, language):
+    user = db_access_user(store, rstate, user_id)
+
+    user = db_update_user(store, user, request, language)
+
     return user_serialize_user(store, user, language)
 
 
-def db_get_user(store, tid, user_id):
-    return models.User.db_get(store,
-                              models.User.id == user_id,
-                              models.User.id == models.User_Tenant.user_id,
-                              models.User_Tenant.tenant_id == tid)
-
-
 @transact
-def get_user(store, tid, user_id, language):
-    return user_serialize_user(store, db_get_user(store, tid, user_id), language)
+def get_user(store, rstate, user_id, language):
+    user = db_access_user(store, rstate, user_id)
+
+    return user_serialize_user(store, user, language)
 
 
-def db_get_admin_users(store, tid):
+def db_system_get_admin_users(store, tid):
     users = store.find(models.User, models.User.role == u'admin',
                                     models.User.id == models.User_Tenant.user_id,
                                     models.User_Tenant.tenant_id == tid)
@@ -170,8 +130,8 @@ def db_get_admin_users(store, tid):
 
 
 @transact
-def delete_user(store, tid, user_id):
-    user = db_get_user(store, tid, user_id)
+def delete_user(store, rstate, user_id):
+    user = db_access_user(store, rstate, user_id)
 
     if not user.deletable:
         raise errors.UserNotDeletable
@@ -185,12 +145,16 @@ def db_get_user_list(store, tid):
 
 
 @transact
-def get_user_list(store, tid, language):
+def get_user_list(store, rstate, language):
     """
     Returns:
         (list) the list of users
     """
-    return [user_serialize_user(store, user, language) for user in db_get_user_list(store, tid)]
+    db_access_tenant(store, rstate, rstate.tid)
+
+    users = db_get_user_list(store, rstate.tid)
+
+    return [user_serialize_user(store, user, language) for user in users]
 
 
 class UsersCollection(BaseHandler):
@@ -205,7 +169,7 @@ class UsersCollection(BaseHandler):
         Response: adminUsersList
         Errors: None
         """
-        response = yield get_user_list(self.current_tenant,
+        response = yield get_user_list(self.req_state,
                                        self.request.language)
 
         self.write(response)
@@ -230,15 +194,16 @@ class UsersCollection(BaseHandler):
 
             response = yield create_receiver_user(self.current_tenant, request, self.request.language)
         elif request['role'] == 'custodian':
-            response = yield create_custodian_user(self.current_tenant, request, self.request.language)
+            response = yield create_user(self.current_tenant, request, self.request.language)
         elif request['role'] == 'admin':
-            response = yield create_admin_user(self.current_tenant, request, self.request.language)
+            response = yield create_user(self.current_tenant, request, self.request.language)
         else:
             raise errors.InvalidInputFormat
 
+        yield app_state.refresh()
+
         GLApiCache.invalidate(self.current_tenant)
 
-        self.set_status(201) # Created
         self.write(response)
 
 
@@ -254,7 +219,7 @@ class UserInstance(BaseHandler):
         Response: AdminUserDesc
         Errors: InvalidInputFormat, UserIdNotFound
         """
-        response = yield get_user(self.current_tenant,
+        response = yield get_user(self.req_state,
                                   user_id,
                                   self.request.language)
 
@@ -274,14 +239,13 @@ class UserInstance(BaseHandler):
         """
         request = self.validate_message(self.request.body, requests.AdminUserDesc)
 
-        response = yield admin_update_user(self.current_tenant,
-                                           user_id,
-                                           request,
-                                           self.request.language)
+        response = yield update_user(self.req_state,
+                                     user_id,
+                                     request,
+                                     self.request.language)
 
         GLApiCache.invalidate(self.current_tenant)
 
-        self.set_status(201)
         self.write(response)
 
     @inlineCallbacks
@@ -296,6 +260,6 @@ class UserInstance(BaseHandler):
         Response: None
         Errors: InvalidInputFormat, UserIdNotFound
         """
-        yield delete_user(self.current_tenant, user_id)
+        yield delete_user(self.req_state, user_id)
 
         GLApiCache.invalidate(self.current_tenant)

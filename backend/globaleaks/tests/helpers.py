@@ -15,14 +15,15 @@ from globaleaks.orm import transact
 from globaleaks.handlers import rtip, wbtip
 from globaleaks.handlers.base import BaseHandler, GLSessions, GLSession, \
     write_upload_encrypted_to_disk
-from globaleaks.handlers.admin.context import create_context, get_context
-from globaleaks.handlers.admin.receiver import create_receiver
+from globaleaks.handlers.admin.context import db_create_context, admin_serialize_context, get_context_recipients
+from globaleaks.handlers.admin.receiver import admin_serialize_receiver
 from globaleaks.handlers.admin.field import db_create_field
-from globaleaks.handlers.admin.step import create_step
-from globaleaks.handlers.admin.questionnaire import get_questionnaire, db_get_questionnaire_steps
-from globaleaks.handlers.admin.user import create_admin_user, create_custodian_user
+from globaleaks.handlers.admin.step import db_create_step, serialize_step
+from globaleaks.handlers.admin.questionnaire import db_get_questionnaire, db_get_questionnaire_steps, serialize_questionnaire
+from globaleaks.handlers.admin.user import db_create_user, db_create_receiver, user_serialize_user
 from globaleaks.handlers.submission import create_submission
 from globaleaks.rest.apicache import GLApiCache
+from globaleaks.rest import errors
 from globaleaks.settings import GLSettings
 from globaleaks.security import GLSecureTemporaryFile
 from globaleaks.state import app_state
@@ -404,7 +405,7 @@ class TestGL(unittest.TestCase):
         """
         defer.returnValue({
             'context_id': context_id,
-            'receivers': (yield get_context(app_state.root_id, context_id, 'en'))['receivers'],
+            'receivers': (yield get_context_recipients(context_id)),
             'files': [],
             'human_captcha_answer': 0,
             'proof_of_work_answer': 0,
@@ -538,7 +539,6 @@ class TestGLWithInitialDB(TestGL):
 
 
 class TestGLWithPopulatedDB(TestGL):
-    complex_field_population = False
     population_of_recipients = 2
     population_of_submissions = 3
     population_of_attachments = 3
@@ -550,44 +550,42 @@ class TestGLWithPopulatedDB(TestGL):
         yield TestGL.setUp(self)
         yield self.fill_data()
 
-    @inlineCallbacks
-    def fill_data(self):
+    @transact
+    def fill_data(self, store):
         # fill_data/create_admin
-        self.dummyAdminUser = yield create_admin_user(app_state.root_id, copy.deepcopy(self.dummyAdminUser), 'en')
+        user = db_create_user(store, app_state.root_id, copy.deepcopy(self.dummyAdminUser), 'en')
+        self.dummyAdminUser = user_serialize_user(store, user, 'en')
 
         # fill_data/create_custodian
-        self.dummyCustodianUser = yield create_custodian_user(app_state.root_id, copy.deepcopy(self.dummyCustodianUser), 'en')
+        user = db_create_user(store, app_state.root_id, copy.deepcopy(self.dummyCustodianUser), 'en')
+        self.dummyCustodianUser = user_serialize_user(store, user, 'en')
+
         # fill_data/create_receiver
-        self.dummyReceiver_1 = yield create_receiver(app_state.root_id, copy.deepcopy(self.dummyReceiver_1), 'en')
+        user = db_create_receiver(store, app_state.root_id, copy.deepcopy(self.dummyReceiver_1), 'en')
+        self.dummyReceiver_1 = admin_serialize_receiver(store, user, 'en')
         self.dummyReceiverUser_1['id'] = self.dummyReceiver_1['id']
-        self.dummyReceiver_2 = yield create_receiver(app_state.root_id, copy.deepcopy(self.dummyReceiver_2), 'en')
+
+        user = db_create_receiver(store, app_state.root_id, copy.deepcopy(self.dummyReceiver_2), 'en')
+        self.dummyReceiver_2 = admin_serialize_receiver(store, user, 'en')
         self.dummyReceiverUser_2['id'] = self.dummyReceiver_2['id']
-        receivers_ids = [self.dummyReceiver_1['id'], self.dummyReceiver_2['id']]
 
         # fill_data/create_context
-        self.dummyContext['receivers'] = receivers_ids
-        self.dummyContext = yield create_context(app_state.root_id, copy.deepcopy(self.dummyContext), 'en')
+        self.dummyContext['receivers'] = [self.dummyReceiver_1['id'], self.dummyReceiver_2['id']]
+        context = db_create_context(store, app_state.root_id, copy.deepcopy(self.dummyContext), 'en')
+        self.dummyContext = admin_serialize_context(store, context, 'en')
 
-        self.dummyQuestionnaire = yield get_questionnaire(self.dummyContext['questionnaire_id'], 'en')
+        questionnaire = db_get_questionnaire(store, self.dummyContext['questionnaire_id'])
+        self.dummyQuestionnaire = serialize_questionnaire(store, questionnaire, 'en')
 
         self.dummyQuestionnaire['steps'].append(get_dummy_step())
         self.dummyQuestionnaire['steps'][1]['questionnaire_id'] = self.dummyContext['questionnaire_id']
         self.dummyQuestionnaire['steps'][1]['label'] = 'Whistleblower identity'
         self.dummyQuestionnaire['steps'][1]['presentation_order'] = 1
-        self.dummyQuestionnaire['steps'][1] = yield create_step(app_state.root_id, self.dummyQuestionnaire['steps'][1], 'en')
 
-        if self.complex_field_population:
-            yield self.add_whistleblower_identity_field_to_step(self.dummyQuestionnaire['steps'][1]['id'])
+        step = db_create_step(store, app_state.root_id, self.dummyQuestionnaire['steps'][1], 'en')
+        self.dummyQuestionnaire['steps'][1] = serialize_step(store, step, 'en')
 
-    @transact
-    def add_whistleblower_identity_field_to_step(self, store, step_id):
-        wbf = store.find(models.Field, models.Field.key == u'whistleblower_identity').one()
-
-        reference_field = get_dummy_field()
-        reference_field['instance'] = 'instance'
-        reference_field['template_id'] = wbf.id
-        reference_field['step_id'] = step_id
-        db_create_field(store, app_state.root_id, reference_field, 'en')
+        app_state.db_refresh(store)
 
     def perform_submission_start(self):
         self.dummyToken = token.Token('submission')
@@ -674,6 +672,7 @@ class TestHandler(TestGLWithPopulatedDB):
     :attr _handler: handler class to be tested
     """
     _handler = None
+    user_role = 'admin'
 
     @inlineCallbacks
     def setUp(self):
@@ -809,6 +808,88 @@ class TestHandlerWithPopulatedDB(TestHandler):
         """
         yield TestGLWithPopulatedDB.setUp(self)
         self.initialization()
+
+
+class TestCreateHandler(TestHandlerWithPopulatedDB):
+        @inlineCallbacks
+        def test_post(self):
+            """
+            Attempt to create a new field via a post request.
+            """
+            req = self.forge_request_data()
+            handler = self.request(req, role=self.user_role)
+            yield handler.post()
+
+
+class TestInstanceHandler(TestHandlerWithPopulatedDB):
+        @inlineCallbacks
+        def test_get(self):
+            """
+            Test the retrival of an existing object
+            """
+            obj_id = self.get_existing_object()['id']
+
+            handler = self.request(role=self.user_role)
+            yield handler.get(obj_id)
+
+        @inlineCallbacks
+        def test_put(self):
+            """
+            Test the update of an existing object
+            """
+            req = self.get_existing_object()
+
+            req.update(self.update_data)
+
+            handler = self.request(req, role=self.user_role)
+            yield handler.put(req['id'])
+
+        @inlineCallbacks
+        def test_delete(self):
+            """
+            Test the deletion of an existing object
+            """
+            obj_id = self.get_existing_object()['id']
+
+            handler = self.request(role=self.user_role)
+            yield handler.delete(obj_id)
+            self.assertEqual(handler.get_status(), 200)
+
+            # second deletion operation should fail
+            yield self.assertFailure(handler.delete(obj_id), errors.ModelNotFound)
+
+
+class TestCollectionHandler(TestHandlerWithPopulatedDB):
+        forge_number = 3
+
+        def forge_multiple_objects(self, n):
+            _handler = self._handler
+
+            for i in seq(0, n):
+                req = forge_request_data()
+                self._handler = self._instance_handler
+                handler = self.request(req, role=self.user_role)
+                yield handler.post()
+
+            self._handler = _handler
+
+        @inlineCallbacks
+        def test_get(self):
+            """
+            Test the retrival of a collection of objects
+            """
+            self.forge_multiple_objects(self.forge_number)
+            handler = self.request(role=self.user_role)
+            yield handler.get()
+
+        @inlineCallbacks
+        def test_post(self):
+            """
+            Attempt to create a new field via a post request.
+            """
+            req = self.forge_request_data()
+            handler = self.request(req, role=self.user_role)
+            yield handler.post()
 
 
 class MockDict:

@@ -298,9 +298,7 @@ class FileHandler(BaseHandler):
         yield file_res_cls.generate_dh_params_if_missing(self.current_tenant)
 
         ok = yield file_res_cls.create_file(self.current_tenant, req['content'])
-        if ok:
-            self.set_status(201, 'Wrote everything')
-        else:
+        if not ok:
             raise errors.ValidationError()
 
     @BaseHandler.transport_security_check('admin')
@@ -313,8 +311,6 @@ class FileHandler(BaseHandler):
         yield file_res_cls.generate_dh_params_if_missing(self.current_tenant)
 
         yield file_res_cls.perform_file_action(self.current_tenant)
-
-        self.set_status(201, 'Accepted changes')
 
     @BaseHandler.transport_security_check('admin')
     @BaseHandler.authenticated('admin')
@@ -384,7 +380,6 @@ class ConfigHandler(BaseHandler):
             self.tstate.memc.private.https_enabled = True
 
             yield GLSettings.state.process_supervisor.maybe_launch_https_workers()
-            self.set_status(200)
         except Exception as e:
             log.err(e)
             self.set_status(406)
@@ -401,7 +396,6 @@ class ConfigHandler(BaseHandler):
         self.tstate.memc.private.https_enabled = False
 
         yield GLSettings.state.process_supervisor.shutdown()
-        self.set_status(200)
 
 
 class CSRFileHandler(FileHandler):
@@ -430,12 +424,8 @@ class CSRFileHandler(FileHandler):
         file_res_cls = self.get_file_res_or_raise(name)
 
         ok = yield file_res_cls.create_file(self.current_tenant, csr_txt)
-        if ok:
-            self.set_status(201, 'Wrote everything')
-        else:
-            raise errors.ValidationError()
-
-        self.set_status(200)
+        if not ok:
+            self.set_status(406)
 
     @staticmethod
     @transact

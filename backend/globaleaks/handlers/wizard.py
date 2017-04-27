@@ -7,8 +7,7 @@ from twisted.internet.defer import inlineCallbacks
 from globaleaks import security
 from globaleaks.handlers.admin.context import db_create_context
 from globaleaks.handlers.admin.node import  set_enabled_languages
-from globaleaks.handlers.admin.receiver import db_create_receiver
-from globaleaks.handlers.admin.user import db_create_admin_user
+from globaleaks.handlers.admin.user import db_create_user, db_create_receiver
 from globaleaks.handlers.base import BaseHandler
 from globaleaks.handlers.public import serialize_node
 from globaleaks.models.config import NodeFactory
@@ -79,7 +78,7 @@ def wizard(store, tid, request, language):
         'pgp_key_expiration': datetime_null()
     }
 
-    db_create_admin_user(store, tid, admin_dict, language)
+    db_create_user(store, tid, admin_dict, language)
 
 
 class Wizard(BaseHandler):
@@ -97,5 +96,3 @@ class Wizard(BaseHandler):
         # cache must be updated in order to set wizard_done = True
         yield serialize_node(self.current_tenant, self.request.language)
         GLApiCache.invalidate(self.current_tenant)
-
-        self.set_status(201)  # Created

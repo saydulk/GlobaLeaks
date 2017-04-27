@@ -32,8 +32,10 @@ def serialize_tenant(tenant):
         'https_hostname': tenant.https_hostname,
         'onion_hostname': tenant.onion_hostname,
     }
+
     if tenant.wizard_token is not None:
         d['wizard_url'] = tenant.create_wizard_url()
+
     return d
 
 
@@ -44,7 +46,6 @@ def db_create_tenant(store, desc, appdata, require_token=True):
         tenant.wizard_token = generateRandomKey(32)
 
     store.add(tenant)
-    #TODO remove flush
     store.flush()
 
     config.db_create_config(store, tenant.id)
@@ -76,6 +77,7 @@ def create_tenant(store, desc, appdata, *args, **kwargs):
 @transact
 def get_tenant_list(store):
     return [serialize_tenant(tenant) for tenant in store.find(Tenant)]
+
 
 @transact
 def admin_update_tenant(store, tid, request):
@@ -131,7 +133,6 @@ class TenantCollection(BaseHandler):
 
         yield app_state.refresh()
 
-        self.set_status(201) # Created
         self.write(response)
 
 

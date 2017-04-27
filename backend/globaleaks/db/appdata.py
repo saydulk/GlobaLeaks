@@ -26,6 +26,12 @@ def load_default_questionnaires(store, appdata):
     if questionnaire is None:
         questionnaire = models.Questionnaire(appdata['default_questionnaire'])
         store.add(questionnaire)
+
+        store.add(models.Questionnaire_Tenant({
+           'questionnaire_id': questionnaire.id,
+           'tenant_id': ROOT_TENANT
+        }))
+
     else:
         for step in questionnaire.steps:
             store.remove(step)

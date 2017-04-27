@@ -32,13 +32,17 @@ def get_questionnaire_list(store, language):
         for questionnaire in store.find(models.Questionnaire)]
 
 
+def db_get_questionnaire(store, questionnaire_id):
+    return models.Questionnaire.db_get(store, id=questionnaire_id)
+
+
 @transact
 def get_questionnaire(store, questionnaire_id, language):
     """
     Returns:
         (dict) the questionnaire with the specified id.
     """
-    questionnaire = models.Questionnaire.db_get(store, id=questionnaire_id)
+    questionnaire = db_get_questionnaire(store, questionnaire_id)
     return serialize_questionnaire(store, questionnaire, language)
 
 
@@ -70,19 +74,6 @@ def db_update_questionnaire(store, questionnaire, request, language):
     questionnaire.update(request)
 
     return questionnaire
-
-
-def db_create_steps(store, questionnaire, steps, language):
-    """
-    Create the specified steps
-    :param store: the store on which perform queries.
-    :param questionnaire: the questionnaire on which register specified steps.
-    :param steps: a dictionary containing the new steps.
-    :param language: the language of the specified steps.
-    """
-    for step in steps:
-        step['questionnaire_id'] = questionnaire.id
-        questionnaire.steps.add(db_create_step(store, step, language))
 
 
 def db_create_questionnaire(store, tid, request, language):
@@ -193,9 +184,7 @@ class QuestionnairesCollection(BaseHandler):
         Response: AdminQuestionnaireDesc
         Errors: InvalidInputFormat, ReceiverIdNotFound
         """
-        validator = requests.AdminQuestionnaireDesc if self.request.language is not None else requests.AdminQuestionnaireDescRaw
-
-        request = self.validate_message(self.request.body, validator)
+        request = self.validate_message(self.request.body, requests.AdminQuestionnaireDesc)
 
         response = yield create_questionnaire(self.current_tenant,
                                               request,
@@ -203,7 +192,6 @@ class QuestionnairesCollection(BaseHandler):
 
         GLApiCache.invalidate(self.current_tenant)
 
-        self.set_status(201)
         self.write(response)
 
 
@@ -244,7 +232,6 @@ class QuestionnaireInstance(BaseHandler):
 
         GLApiCache.invalidate(self.current_tenant)
 
-        self.set_status(202)
         self.write(response)
 
     @BaseHandler.transport_security_check('admin')

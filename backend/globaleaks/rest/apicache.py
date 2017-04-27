@@ -2,6 +2,7 @@
 
 from twisted.internet.defer import inlineCallbacks, returnValue, Deferred
 
+from twisted.internet.defer import inlineCallbacks, returnValue
 
 class GLApiCache(object):
     _cache = dict()

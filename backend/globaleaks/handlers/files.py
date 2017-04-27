@@ -103,8 +103,6 @@ class FileAdd(BaseHandler):
             log.err("Unable to register (append) file in DB: %s" % excep)
             raise errors.InternalServerError("Unable to accept new files")
 
-        self.set_status(201)  # Created
-
 
 class FileInstance(BaseHandler):
     """
@@ -149,5 +147,3 @@ class FileInstance(BaseHandler):
         except Exception as excep:
             log.err("Unable to save file in filesystem: %s" % excep)
             raise errors.InternalServerError("Unable to accept files")
-
-        self.set_status(201)  # Created

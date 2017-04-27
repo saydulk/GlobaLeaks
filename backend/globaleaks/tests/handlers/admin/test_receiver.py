@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import copy
 
 from twisted.internet.defer import inlineCallbacks
 
@@ -8,27 +9,29 @@ from globaleaks.tests import helpers
 from globaleaks.utils.utility import uuid4
 
 
-class TestReceiversCollection(helpers.TestHandlerWithPopulatedDB):
+class TestReceiverCollection(helpers.TestCollectionHandler):
     _handler = receiver.ReceiversCollection
+    _instance_handler = receiver.ReceiverInstance
 
-    @inlineCallbacks
-    def test_get(self):
-        handler = self.request(role='admin')
-        yield handler.get()
+    def forge_request_data(self):
+        return copy.deepcopy(self.dummyReceiver_1)
 
-        self.assertEqual(len(self.responses[0]), 2)
+    def test_post(self):
+        pass
 
 
-class TestReceiverInstance(helpers.TestHandlerWithPopulatedDB):
+class TestFieldInstance(helpers.TestInstanceHandler):
     _handler = receiver.ReceiverInstance
 
-    @inlineCallbacks
-    def test_get(self):
-        handler = self.request(role='admin')
-        yield handler.get(self.dummyReceiver_1['id'])
-        del self.dummyReceiver_1['contexts']
-        del self.responses[0]['contexts']
-        self.assertEqual(self.responses[0]['id'], self.dummyReceiver_1['id'])
+    update_data = {
+        'tip_timetolive': 666
+    }
+
+    def forge_request_data(self):
+        return copy.deepcopy(self.dummyReceiver_1)
+
+    def get_existing_object(self):
+        return self.dummyReceiver_1
 
     @inlineCallbacks
     def test_put_invalid_context_id(self):
@@ -38,3 +41,6 @@ class TestReceiverInstance(helpers.TestHandlerWithPopulatedDB):
 
         yield self.assertFailure(handler.put(self.dummyReceiver_1['id']),
                                  errors.ModelNotFound)
+
+    def test_delete(self):
+        pass

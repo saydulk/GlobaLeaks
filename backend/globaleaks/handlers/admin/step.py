@@ -18,8 +18,7 @@ from globaleaks.utils.structures import fill_localized_keys
 
 
 def db_get_step(store, tid, step_id):
-    return store.find(models.Step, models.Step.id == step_id,
-                                   models.Step.questionnaire_id == models.Questionnaire.id).one()
+    return models.Step.db_get(store, id=step_id)
 
 
 def db_create_step(store, tid, step_dict, language):
@@ -136,7 +135,6 @@ class StepCollection(BaseHandler):
 
         GLApiCache.invalidate(self.current_tenant)
 
-        self.set_status(201)
         self.write(response)
 
 
@@ -188,7 +186,6 @@ class StepInstance(BaseHandler):
 
         GLApiCache.invalidate(self.current_tenant)
 
-        self.set_status(202) # Updated
         self.write(response)
 
 

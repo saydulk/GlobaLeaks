@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import random
+import copy
 
 from twisted.internet.defer import inlineCallbacks
 
@@ -8,75 +8,29 @@ from globaleaks.rest import errors
 from globaleaks.tests import helpers
 
 
-class TestUsersCollection(helpers.TestHandlerWithPopulatedDB):
+class TestContextsCollection(helpers.TestCollectionHandler):
     _handler = user.UsersCollection
+    _instance_handler = user.UserInstance
 
-    @inlineCallbacks
-    def test_get(self):
-        handler = self.request(role='admin')
-        yield handler.get()
-
-        self.assertEqual(len(self.responses[0]), 4)
-
-    @inlineCallbacks
-    def test_post_new_admin(self):
-        self.dummyAdminUser['username'] = 'beppe'
-
-        handler = self.request(self.dummyAdminUser, role='admin')
-        yield handler.post()
-
-    @inlineCallbacks
-    def test_post_new_custodian(self):
-        self.dummyCustodianUser['username'] = 'beppe'
-
-        handler = self.request(self.dummyCustodianUser, role='admin')
-        yield handler.post()
-
-    @inlineCallbacks
-    def test_post_new_receiver(self):
-        self.dummyReceiver_1['username'] = 'beppe'
-
-        new_receiver = self.get_dummy_receiver('beppe')
-
-        handler = self.request(new_receiver, role='admin')
-        yield handler.post()
+    def forge_request_data(self):
+        return copy.deepcopy(self.dummyReceiverUser_1)
 
 
-class TestUserInstance(helpers.TestHandlerWithPopulatedDB):
+class TestFieldInstance(helpers.TestInstanceHandler):
     _handler = user.UserInstance
 
-    @inlineCallbacks
-    def test_get(self):
-        handler = self.request(role='admin')
-        yield handler.get(self.dummyAdminUser['id'])
-        self.assertEqual(self.responses[0]['id'], self.dummyAdminUser['id'])
+    update_data = {
+        'name': 'Mario Rossi'
+    }
 
-    @inlineCallbacks
-    def test_put_change_name(self):
-        self.dummyAdminUser['name'] = u'new unique name %d' % random.randint(1, 10000)
+    def forge_request_data(self):
+        return copy.deepcopy(self.dummyReciverUser_1)
 
-        handler = self.request(self.dummyAdminUser, role='admin')
-        yield handler.put(self.dummyAdminUser['id'])
-        self.assertEqual(self.responses[0]['name'], self.dummyAdminUser['name'])
-
-    @inlineCallbacks
-    def test_put_change_valid_password(self):
-        self.dummyAdminUser['name'] = u'trick to verify the update is accepted'
-        self.dummyAdminUser['password'] = u'12345678antani'
-
-        handler = self.request(self.dummyAdminUser, role='admin')
-        yield handler.put(self.dummyAdminUser['id'])
-        self.assertEqual(self.responses[0]['name'], self.dummyAdminUser['name'])
+    def get_existing_object(self):
+        return self.dummyReceiverUser_1
 
     @inlineCallbacks
     def test_delete_first_admin_user_should_fail(self):
-        handler = self.request(role='admin')
+        handler = self.request(role=self.user_role)
         yield self.assertFailure(handler.delete(self.dummyAdminUser['id']),
                                  errors.UserNotDeletable)
-
-    @inlineCallbacks
-    def test_delete_receiver_should_succeed(self):
-        handler = self.request(role='admin')
-        yield handler.delete(self.dummyReceiverUser_1['id'])
-        yield self.assertFailure(handler.get(self.dummyReceiverUser_1['id']),
-                                 errors.ModelNotFound)

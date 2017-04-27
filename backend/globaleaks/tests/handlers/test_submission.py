@@ -15,8 +15,6 @@ from globaleaks.utils.token import Token
 class TestSubmissionEncryptedScenario(helpers.TestHandlerWithPopulatedDB):
     _handler = SubmissionInstance
 
-    complex_field_population = True
-
     encryption_scenario = 'ENCRYPTED'
 
     files_created = 6

@@ -127,7 +127,6 @@ class NotificationInstance(BaseHandler):
         # TODO(tstate) invalidate cur tenant_state
         yield app_state.refresh()
 
-        self.set_status(202)
         self.write(response)
 
 

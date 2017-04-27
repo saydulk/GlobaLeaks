@@ -21,7 +21,7 @@ class TestUserInstance(helpers.TestHandlerWithPopulatedDB):
     def setUp(self):
         yield helpers.TestHandlerWithPopulatedDB.setUp(self)
 
-        self.rcvr_id = (yield admin.receiver.get_receiver_list(app_state.root_id, 'en'))[0]['id']
+        self.rcvr_id = self.dummyReceiver_1['id']
 
     @inlineCallbacks
     def test_disable_tip_notification(self):

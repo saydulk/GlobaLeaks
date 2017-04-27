@@ -39,7 +39,6 @@ class TokenCreate(BaseHandler):
 
         token = Token(request['type'])
 
-        self.set_status(201) # Created
         self.write(token.serialize())
 
 
@@ -61,5 +60,4 @@ class TokenInstance(BaseHandler):
         if not token.update(request):
             raise errors.TokenFailure('failed challenge')
 
-        self.set_status(202) # Updated
         self.write(token.serialize())

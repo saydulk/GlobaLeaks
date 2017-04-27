@@ -10,7 +10,6 @@
 from globaleaks import models
 from globaleaks.models.l10n import NotificationL10NFactory
 from globaleaks.utils.sets import disjoint_union
-from globaleaks.utils.structures import get_raw_request_format
 
 uuid_regexp                       = r'^([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})$'
 uuid_regexp_or_empty              = r'^([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})$|^$'
@@ -265,16 +264,12 @@ AdminFieldOptionDesc = {
     'trigger_step': uuid_regexp_or_empty
 }
 
-AdminFieldOptionDescRaw = get_raw_request_format(AdminFieldOptionDesc, models.FieldOption.localized_keys)
-
 AdminFieldAttrDesc = {
     'id': uuid_regexp_or_empty,
     'name': unicode,
     'type': field_attr_type_regexp,
     'value': SkipSpecificValidation
 }
-
-AdminFieldAttrDescRaw = get_raw_request_format(AdminFieldAttrDesc, models.FieldAttr.localized_keys)
 
 AdminFieldDesc = {
     'id': uuid_regexp_or_empty,
@@ -302,11 +297,6 @@ AdminFieldDesc = {
     'triggered_by_score': int
 }
 
-AdminFieldDescRaw = get_raw_request_format(AdminFieldDesc, models.Field.localized_keys)
-AdminFieldDescRaw['options'] = [AdminFieldOptionDescRaw]
-# AdminFieldDescRaw['attrs']; FIXME: we still miss a way for validating a hierarchy where
-#                                    we have a variable dictionary like the attrs dictionary.
-
 AdminStepDesc = {
     'id': uuid_regexp_or_empty,
     'label': unicode,
@@ -317,9 +307,6 @@ AdminStepDesc = {
     'triggered_by_score': int
 }
 
-AdminStepDescRaw = get_raw_request_format(AdminStepDesc, models.Step.localized_keys)
-AdminStepDescRaw['children'] = [AdminFieldDescRaw]
-
 AdminQuestionnaireDesc = {
     'id': uuid_regexp_or_empty,
     'key': unicode,
@@ -328,9 +315,6 @@ AdminQuestionnaireDesc = {
     'steps_navigation_requires_completion': bool,
     'steps': [AdminStepDesc]
 }
-
-AdminQuestionnaireDescRaw = get_raw_request_format(AdminQuestionnaireDesc, models.Questionnaire.localized_keys)
-AdminQuestionnaireDescRaw['steps'] = [AdminStepDescRaw]
 
 AdminContextDesc = {
     'id': uuid_regexp_or_empty,
@@ -356,8 +340,6 @@ AdminContextDesc = {
     'show_receivers_in_alphabetical_order': bool,
     'questionnaire_id': unicode
 }
-
-AdminContextDescRaw = get_raw_request_format(AdminContextDesc, models.Context.localized_keys)
 
 AdminReceiverDesc = {
     'id': uuid_regexp_or_empty,

@@ -7,7 +7,6 @@ from globaleaks.jobs.delivery_sched import DeliverySchedule
 from globaleaks.tests import helpers
 
 class TestExportHandler(helpers.TestHandlerWithPopulatedDB):
-    complex_field_population = True
     _handler = export.ExportHandler
 
     # All of the setup here is used by the templating that goes into the data.txt file.

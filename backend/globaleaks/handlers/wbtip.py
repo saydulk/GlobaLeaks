@@ -208,7 +208,6 @@ class WBTipCommentCollection(BaseHandler):
         request = self.validate_message(self.request.body, requests.CommentDesc)
         answer = yield create_comment(self.current_user.user_id, request)
 
-        self.set_status(201)  # Created
         self.write(answer)
 
 
@@ -235,7 +234,6 @@ class WBTipMessageCollection(BaseHandler):
 
         message = yield create_message(self.current_user.user_id, receiver_id, request)
 
-        self.set_status(201)  # Created
         self.write(message)
 
 
@@ -268,5 +266,3 @@ class WBTipIdentityHandler(BaseHandler):
                                           request['identity_field_id'],
                                           request['identity_field_answers'],
                                           self.request.language)
-
-        self.set_status(202)  # Updated

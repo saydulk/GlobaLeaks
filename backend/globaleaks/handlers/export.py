@@ -16,7 +16,6 @@ from globaleaks.handlers.admin.node import db_admin_serialize_node
 from globaleaks.handlers.admin.notification import db_get_notification
 from globaleaks.handlers.admin.receiver import admin_serialize_receiver
 from globaleaks.handlers.base import BaseHandler
-from globaleaks.handlers.public import db_prepare_contexts_serialization, db_prepare_receivers_serialization
 from globaleaks.handlers.rtip import db_access_rtip, serialize_rtip
 from globaleaks.orm import transact
 from globaleaks.settings import GLSettings
@@ -33,16 +32,13 @@ def get_tip_export(store, tid, user_id, rtip_id, language):
 
     rtip_dict = serialize_rtip(store, rtip, language)
 
-    data_context = db_prepare_contexts_serialization(store, [rtip.internaltip.context])
-    data_receiver = db_prepare_receivers_serialization(store, [receiver])
-
     export_dict = {
         'type': u'export_template',
         'node': db_admin_serialize_node(store, tid, language),
         'notification': db_get_notification(store, tid, language),
         'tip': serialize_rtip(store, rtip, language),
-        'context': admin_serialize_context(store, rtip.internaltip.context, data_context, language),
-        'receiver': admin_serialize_receiver(store, receiver, data_receiver, language),
+        'context': admin_serialize_context(store, rtip.internaltip.context, language),
+        'receiver': admin_serialize_receiver(store, receiver, language),
         'comments': rtip_dict['comments'],
         'messages': rtip_dict['messages'],
         'files': []
