@@ -1,7 +1,7 @@
 <form name="adminNetForm" data-ng-controller="AdminNetFormCtrl">
   <div class="row">
     <div class="col-md-12">
-      <div class="form-group" data-ng-class="{'has-error': adminNetForm.hostname.$error.pattern}">
+      <div class="form-group">
         <label data-translate>Hostname</label>
         <input class="form-control" name="hostname" type="text" data-ng-model="admin.node.hostname" data-ng-pattern="hostname_regexp">
         <p class="text-danger" data-ng-show="adminNetForm.hostname.$error.pattern">

@@ -23,6 +23,7 @@ from globaleaks.onion_services import configure_tor_hs
 from globaleaks.utils.utility import log, GLLogObserver
 from globaleaks.utils.sock import listen_tcp_on_sock, reserve_port_for_ip
 from globaleaks.workers.supervisor import ProcessSupervisor
+from globaleaks import orm
 
 from globaleaks.state import app_state
 
@@ -70,6 +71,7 @@ def pre_listen_startup():
 
     sync_clean_untracked_files()
 
+    orm.thread_pool.start()
     # TODO(tid_me) startup create tenant_id
     app_state.sync_refresh()
 
@@ -87,8 +89,6 @@ class GLService(service.Service):
 
     @defer.inlineCallbacks
     def _start(self):
-        app_state.orm_tp.start()
-        reactor.addSystemEventTrigger('after', 'shutdown', app_state.orm_tp.stop)
         api_factory = api.get_api_factory(app_state)
 
         yield configure_tor_hs(app_state.root_id, GLSettings.bind_port)

@@ -8,7 +8,7 @@ import sys
 reload(sys)
 sys.setdefaultencoding('utf8')
 
-from globaleaks import db, models, security, event, jobs
+from globaleaks import db, models, security, event, jobs, orm
 from globaleaks.anomaly import Alarm
 from globaleaks.db.appdata import load_appdata
 from globaleaks.orm import transact
@@ -99,7 +99,7 @@ def init_glsettings_for_unit_tests():
     GLSettings.remove_directories()
     GLSettings.create_directories()
 
-    GLSettings.orm_tp = FakeThreadPool()
+    orm.thread_pool = FakeThreadPool()
 
     GLSessions.clear()
 

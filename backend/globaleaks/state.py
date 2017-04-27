@@ -1,9 +1,6 @@
-from twisted.python.threadpool import ThreadPool
-
 from globaleaks.constants import ROOT_TENANT
 from globaleaks.utils.tor_exit_set import TorExitSet
 from globaleaks import LANGUAGES_SUPPORTED_CODES, models
-from globaleaks.constants import ROOT_TENANT
 from globaleaks.orm import transact, transact_sync
 from globaleaks.settings import GLSettings
 from globaleaks.utils.objectdict import ObjectDict
@@ -46,17 +43,18 @@ class TenantState(object):
 
         self.memc.private = ObjectDict(models.config.PrivateFactory(store, self.id).mem_copy_export())
 
+
     @transact
     def refresh(self, store):
         return self.db_refresh(store)
+
+    def __repr__(self):
+        return '<TenantState %s, %s>' % (self.id, self.memc.https_hostname)
 
 
 class AppState(object):
     def __init__(self):
         self.process_supervisor = None
-
-        # thread pool size of 1
-        self.orm_tp = ThreadPool(1, 1)
 
         self.tor_exit_set = TorExitSet()
         self.jobs = []

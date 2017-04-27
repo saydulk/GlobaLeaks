@@ -11,6 +11,7 @@ from storm.databases.sqlite import sqlite
 from storm.store import Store
 from twisted.internet import reactor
 from twisted.internet.threads import deferToThreadPool
+from twisted.python.threadpool import ThreadPool
 
 from globaleaks.settings import GLSettings
 
@@ -56,7 +57,9 @@ def get_store():
 
 
 transact_lock = threading.Lock()
-
+# Set thread pool size of 1
+thread_pool = ThreadPool(1, 1)
+reactor.addSystemEventTrigger('after', 'shutdown', thread_pool.stop)
 
 class transact(object):
     """
@@ -80,7 +83,7 @@ class transact(object):
 
     def run(self, function, *args, **kwargs):
         return deferToThreadPool(reactor,
-                                 GLSettings.orm_tp,
+                                 thread_pool,
                                  function,
                                  *args,
                                  **kwargs)

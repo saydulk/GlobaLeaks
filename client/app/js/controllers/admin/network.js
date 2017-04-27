@@ -27,7 +27,7 @@ controller('AdminHTTPSConfigCtrl', ['$http', '$scope', '$uibModal', 'FileSaver',
   $scope.parseTLSConfig = function(tlsConfig) {
     $scope.tls_config = tlsConfig;
 
-    if (!$scope.admin.node.hostname || !tlsConfig.files.priv_key.set) {
+    if (!tlsConfig.files.priv_key.set) {
       $scope.state = 0;
     } else if (tlsConfig.files.priv_key.gen && !tlsConfig.files.csr.set) {
       $scope.state = 1;
