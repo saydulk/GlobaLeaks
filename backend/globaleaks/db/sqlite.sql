@@ -8,7 +8,7 @@ CREATE TABLE tenant (
     -- TODO temporary
     wizard_token TEXT,
     creation_date TEXT NOT NULL,
-    https_hostname TEXT,
+    https_hostname TEXT, -- the primary hostname for the machine
     onion_hostname TEXT,
     -- Note NULL values do not count as unique
     UNIQUE(https_hostname),

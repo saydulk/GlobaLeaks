@@ -81,8 +81,6 @@ GLConfig = {
         'basic_auth_username': Unicode(default=u''),
         'basic_auth_password': Unicode(default=u''),
 
-        'hostname': Unicode(validator=shorttext_v, default=u''),
-        'onionservice': Unicode(validator=shorttext_v, default=u''),
         'tb_download_link': Unicode(validator=shorttext_v, default=u'https://www.torproject.org/download/download-easy.html.en'),
 
         'default_language': Unicode(validator=shorttext_v, default=u'en'),

@@ -100,23 +100,14 @@ class GLService(service.Service):
                                                          '127.0.0.1',
                                                          GLSettings.bind_port)
 
-        yield app_state.process_supervisor.maybe_launch_https_workers()
+        yield app_state.process_supervisor.launch_and_configure_workers(app_state) # @_@ design me better
 
         self.start_jobs()
 
-        print("GlobaLeaks is now running and accessible at the following urls:")
+        print("GlobaLeaks is listening and will respond to the following urls:")
+        for ten_state in app_state.tenant_states.values():
+            print("- http://%s%s" % (ten_state.memc.https_hostname, GLSettings.api_prefix))
 
-        # TODO(tid_me) display all hostnames under tenants via tid:
-        # Label: h1, h2, h3
-        if app_state.memc.reachable_via_web:
-            print("- http://%s:%d%s" % (GLSettings.bind_address, GLSettings.bind_port, GLSettings.api_prefix))
-            if app_state.memc.hostname:
-                print("- http://%s:%d%s" % (app_state.memc.hostname, GLSettings.bind_port, GLSettings.api_prefix))
-        else:
-            print("- http://127.0.0.1:%d%s" % (GLSettings.bind_port, GLSettings.api_prefix))
-
-        if GLSettings.onionservice is not None:
-            print("- http://%s%s" % (GLSettings.onionservice, GLSettings.api_prefix))
 
     def start_jobs(self):
         # A temporary shim

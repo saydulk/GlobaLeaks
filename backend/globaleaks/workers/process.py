@@ -12,8 +12,8 @@ from twisted.internet.protocol import ProcessProtocol
 from twisted.spread import pb
 
 from globaleaks.handlers.admin.tenant import get_tenant_list
-from globaleaks.models.config import tx_load_tls_dict
 from globaleaks.utils import tls
+from globaleaks.utils.tls import tx_load_tls_dict
 from globaleaks.utils.utility import log, randint
 from globaleaks.utils.sock import unix_sock_path
 

@@ -73,4 +73,5 @@ def db_configure_tor_hs(store, tid, bind_port):
         log.debug('Successfully handled tor cleanup')
 
     reactor.addSystemEventTrigger('before', 'shutdown', shutdown_hs)
-    log.msg('Succeeded configuring tor to server %s' % (ephs.hostname))
+    log.msg('Succeeded configuring tor ephemeral service. Now listening at:' )
+    log.msg('http://%s' % ephs.hostname)

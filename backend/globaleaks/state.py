@@ -15,8 +15,12 @@ class TenantState(object):
 
     def db_refresh(self, store):
         node_ro = ObjectDict(models.config.NodeFactory(store, self.id).admin_export())
+        ten = models.Tenant.db_get(store, id=self.id)
 
         self.memc = node_ro
+
+        self.memc.https_hostname = ten.https_hostname
+        self.memc.onion_hostname = ten.onion_hostname
 
         self.memc.accept_tor2web_access = {
             'admin': node_ro.tor2web_admin,

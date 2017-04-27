@@ -8,9 +8,10 @@ from sys import executable
 from twisted.internet import defer, reactor
 
 from globaleaks.constants import ROOT_TENANT
-from globaleaks.models.config import PrivateFactory, load_tls_dict
+from globaleaks.models.config import PrivateFactory
 from globaleaks.orm import transact
 from globaleaks.utils import tls
+from globaleaks.utils.tls import load_tls_dict
 from globaleaks.utils.utility import log, datetime_now, datetime_to_ISO8601, randint
 from globaleaks.workers.process import HTTPSProcProtocol
 

@@ -10,7 +10,7 @@ from twisted.internet.threads import deferToThread
 from globaleaks.orm import transact
 from globaleaks.settings import GLSettings
 from globaleaks.handlers.base import BaseHandler, HANDLER_EXEC_TIME_THRESHOLD
-from globaleaks.models.config import PrivateFactory, NodeFactory, load_tls_dict
+from globaleaks.models.config import PrivateFactory, NodeFactory
 from globaleaks.rest import errors, requests
 from globaleaks.utils import tls
 from globaleaks.utils.utility import datetime_to_ISO8601, format_cert_expr_date, log
@@ -82,7 +82,7 @@ class PrivKeyFileRes(FileResource):
     @classmethod
     @transact
     def create_file(store, cls, tid, raw_key):
-        db_cfg = load_tls_dict(store, tid)
+        db_cfg = tls.load_tls_dict(store, tid)
         db_cfg['ssl_key'] = raw_key
 
         prv_fact = PrivateFactory(store, tid)
@@ -137,7 +137,7 @@ class CertFileRes(FileResource):
     def create_file(store, cls, tid, raw_cert):
         prv_fact = PrivateFactory(store, tid)
 
-        db_cfg = load_tls_dict(store, tid)
+        db_cfg = tls.load_tls_dict(store, tid)
         db_cfg['ssl_cert'] = raw_cert
 
         cv = cls.validator()
@@ -185,7 +185,7 @@ class ChainFileRes(FileResource):
     def create_file(store, cls, tid, raw_chain):
         prv_fact = PrivateFactory(store, tid)
 
-        db_cfg = load_tls_dict(store, tid)
+        db_cfg = tls.load_tls_dict(store, tid)
         db_cfg['ssl_intermediate'] = raw_chain
 
         cv = cls.validator()
@@ -353,7 +353,7 @@ def try_to_enable_https(store, tid):
     prv_fact = PrivateFactory(store, tid)
 
     cv = tls.ChainValidator()
-    db_cfg = load_tls_dict(store, tid)
+    db_cfg = tls.load_tls_dict(store, tid)
 
     ok, err = cv.validate(db_cfg, must_be_disabled=False)
     if ok:
@@ -385,8 +385,7 @@ class ConfigHandler(BaseHandler):
             yield try_to_enable_https(self.current_tenant)
             self.tstate.memc.private.https_enabled = True
 
-            # TODO(tid_me) only let root_tenant launch workers
-            yield self.app_state.process_supervisor.maybe_launch_https_workers()
+            yield self.app_state.process_supervisor.configure_tls_ctx(self.ten_state)
             self.set_status(200)
         except Exception as e:
             log.err(e)
@@ -444,7 +443,7 @@ class CSRFileHandler(FileHandler):
     @staticmethod
     @transact
     def perform_action(store, tid, csr_fields):
-        db_cfg = load_tls_dict(store, tid)
+        db_cfg = tls.load_tls_dict(store, tid)
 
         pkv = tls.PrivKeyValidator()
         ok, err = pkv.validate(db_cfg)

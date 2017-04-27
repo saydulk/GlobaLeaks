@@ -70,10 +70,12 @@ def db_create_tenant(store, desc, appdata, require_token=True):
 def create_tenant(store, desc, appdata, *args, **kwargs):
     return serialize_tenant(db_create_tenant(store, desc, appdata, *args, **kwargs))
 
+def db_get_tenant_list(store):
+    return [serialize_tenant(tenant) for tenant in store.find(Tenant)]
 
 @transact
 def get_tenant_list(store):
-    return [serialize_tenant(tenant) for tenant in store.find(Tenant)]
+    return db_get_tenant_list(store)
 
 @transact
 def admin_update_tenant(store, tid, request):

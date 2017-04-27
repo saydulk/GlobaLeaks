@@ -50,7 +50,7 @@ def commit_prereq_config(*args, **kwargs):
     return db_commit_prereq_config(*args, **kwargs)
 
 def db_commit_prereq_config(store, dh_params, commonname):
-    NodeFactory(store, ROOT_TENANT).set_val('hostname', commonname)
+    #NodeFactory(store, ROOT_TENANT).set_val('hostname', commonname)
     PrivateFactory(store, app_state.root_id).set_val('https_dh_params', dh_params)
 
 

@@ -16,6 +16,7 @@ from globaleaks.tests.utils import test_tls
 # NOTE test modifies global state
 from globaleaks.state import app_state
 
+# TODO TODO add dummy tenant with expected https_hostname
 class TestFileHandler(helpers.TestHandler):
     _handler = https.FileHandler
 

@@ -114,8 +114,6 @@ class GLSettingsClass(object):
 
         self.local_hosts = ['127.0.0.1', 'localhost']
 
-        self.onionservice = None
-
         self.receipt_regexp = u'[0-9]{16}'
 
         # TODO(tid_state) converted to static variables

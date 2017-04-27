@@ -14,8 +14,9 @@ from twisted.internet.defer import inlineCallbacks, Deferred
 from twisted.internet.protocol import ProcessProtocol
 
 from globaleaks.constants import ROOT_TENANT
-from globaleaks.models.config import PrivateFactory, load_tls_dict
+from globaleaks.models.config import PrivateFactory
 from globaleaks.utils.sock import reserve_port_for_ip
+from globaleaks.utils.tls import load_tls_dict
 from globaleaks.orm import transact, wrap_db_tx
 from globaleaks.workers import supervisor, process
 from globaleaks.workers.https_worker import HTTPSProcess
