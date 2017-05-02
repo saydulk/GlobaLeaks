@@ -38,7 +38,8 @@ def load_tls_dict(store, tid):
         'ssl_intermediate': privFact.get_val('https_chain'),
         'ssl_dh': privFact.get_val('https_dh_params'),
         'https_enabled': privFact.get_val('https_enabled'),
-        'commonname': Tenant.db_get(store, id=tid).https_hostname,
+        'commonname': Tenant.db_get(store, id=tid).https_hostname.split(':')[0],
+        'tenant_id': tid,
     }
 
     return tls_cfg

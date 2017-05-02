@@ -24,12 +24,12 @@ def open_socket_listen(ip, port):
     return s
 
 
-def open_unix_socket(path):
+def open_unix_sock(path):
     if os.path.exists(path):
         os.unlink(path)
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     s.setblocking(False)
-    #s.bind(path)
+    s.bind(path)
     return s
 
 

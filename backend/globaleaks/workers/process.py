@@ -15,7 +15,7 @@ from globaleaks.handlers.admin.tenant import get_tenant_list
 from globaleaks.utils import tls
 from globaleaks.utils.tls import tx_load_tls_dict
 from globaleaks.utils.utility import log, randint
-from globaleaks.utils.sock import unix_sock_path
+from globaleaks.utils.sock import unix_sock_path, open_unix_sock
 
 
 def SigQUIT(SIG, FRM):
@@ -65,17 +65,6 @@ class Process(object):
 
         sys.excepthook = excepthook
 
-        f = os.fdopen(fd, 'r')
-
-        try:
-            s = f.read()
-        except:
-            raise
-        finally:
-            f.close()
-
-        self.cfg = json.loads(s)
-
     def start(self):
         reactor.run()
 
@@ -87,19 +76,12 @@ class Process(object):
 class CfgFDProcProtocol(ProcessProtocol):
     def __init__(self, supervisor, cfg, cfg_fd=42):
         self.supervisor = supervisor
-        self.cfg = json.dumps(cfg)
+        self.cfg = cfg
         self.cfg_fd = cfg_fd
 
-        self.fd_map = {0:'r', cfg_fd:'w'}
+        self.fd_map = {0:'r', cfg_fd:'r'}
 
         self.startup_promise = defer.Deferred()
-
-    def connectionMade(self):
-        self.transport.writeToChild(self.cfg_fd, self.cfg)
-
-        self.transport.closeChildFD(self.cfg_fd)
-
-        self.startup_promise.callback(None)
 
     def childDataReceived(self, childFD, data):
         for line in data.split('\n'):
@@ -115,78 +97,70 @@ class CfgFDProcProtocol(ProcessProtocol):
 
 class HTTPSProcProtocol(CfgFDProcProtocol):
     def __init__(self, supervisor, cfg, cfg_fd=42):
+        self.cc = None
+
         # Clone the config
         cfg = dict(cfg)
 
-        # Pass the unix control sock fd
-        cpanel_unix_sock = unix_sock_path()
-        cfg['unix_control_sock'] = cpanel_unix_sock
-        #cfg['unix_control_sock_fd'] = s.fileno()
+        s_path = unix_sock_path()
+        log.debug('Reserved unix sock: %s' % s_path)
+        cfg['unix_control_sock'] = s_path
 
-        #super(self.__class__, self).__init__(self, supervisor, cfg, cfg_fd)
         # NOTE cannot use super here because old style objs
         CfgFDProcProtocol.__init__(self, supervisor, cfg, cfg_fd)
 
         for tls_socket_fd in cfg['tls_socket_fds']:
             self.fd_map[tls_socket_fd] = tls_socket_fd
 
-        # TODO use socket.fromfd from twisted.internet.tcp._fromListeningDescriptor
-        # to adopt the fd in the subprocess like twisted.internet.posixbase adoptStreamPort
-        # With the file descriptor already open, we can drop all perms on it as soon as the
-        # the client establishes a connection and change the user to nobody
+        # TODO attach a timing out callback that kills the child after a set period
+        # if the startup_promise is not called
 
-        self.cc = ControlClient(cpanel_unix_sock)
-        self.cc.cfg = cfg
-
-    @inlineCallbacks
-    def connectionMade(self):
-        CfgFDProcProtocol.connectionMade(self)
-        yield self.cc.connect_and_control()
-
-        tenants = yield get_tenant_list()
-
-        for tenant in tenants:
-            tls_cfg = yield tx_load_tls_dict(tenant['id'])
-
-            chnv = tls.ChainValidator()
-            ok, err = chnv.validate(tls_cfg, must_be_disabled=False)
-            if not ok or err is not None:
-                log.debug('Skipping https setup for %s because: %s' % (tenant['label'], err))
-                continue
-
-            yield self.cc.add_tls_ctx(tls_cfg)
-
-        # TODO drop privileges here
+    def childConnectionLost(self, childFD):
+        CfgFDProcProtocol.childConnectionLost(self, childFD)
+        # Ensure that this logic is only ever called once.
+        if childFD == self.cfg_fd and not self.startup_promise.called:
+            log.debug('Subprocess[%d] signaled the pub broker is active' % self.transport.pid)
+            self.cc = ControlClient(self.cfg)
+            # TODO With the file descriptor already open, we can drop all perms
+            # on it as soon as the the client establishes a connection and
+            # change the user to nobody
+            self.cc.startup_promise.addCallback(self.startup_promise.callback)
 
 
 class ControlClient(object):
-    def __init__(self, sock_addr):
-        self.sock_addr = sock_addr
-
-    def connect_and_control(self):
+    def __init__(self, cfg):
         clientfactory = pb.PBClientFactory()
+        u_sock = cfg['unix_control_sock']
+        log.debug('Attempting connection to %s' % u_sock)
+        reactor.connectUNIX(u_sock, clientfactory)
+        log.debug('Socket connected')
+        self.startup_promise = clientfactory.getRootObject()
+        self.startup_promise.addCallback(self.attach_root)
+        self.startup_promise.addCallback(self.launch_server, cfg)
+        self.startup_promise.addErrback(self.failedStartup)
 
-        reactor.connectUNIX(self.sock_addr, clientfactory)
-        d = clientfactory.getRootObject()
-        d.addCallback(self.attach_root)
-        #d.addCallback(self.send_shutdown_signal, 60)
-        return d
+    def failedStartup(self, *args):
+        log.err('PB startup failed with %s' % args)
 
     def attach_root(self, rootObj):
         self.rootObj = rootObj
 
-    def send_msg(self, _):
-        d = self.rootObj.callRemote('do_noop', obj)
-        d.addCallback(self.get_msg)
+    def launch_server(self, _, cfg):
+        log.debug('Calling remote subprocess startup')
+        d = self.rootObj.callRemote('startup', cfg)
+        d.addCallback(self.log_msg)
+        return d
 
-    def add_tls_ctx(self, tls_cfg):
-        d = self.rootObj.callRemote('add_context', tls_cfg)
-        log.debug('Adding certificate for %s' % tls_cfg['commonname'])
+    def set_context(self, tls_cfg):
+        log.debug('Adding certificate for tenant:<%s>:%s' % \
+                  (tls_cfg['tenant_id'], tls_cfg['commonname']))
+        d = self.rootObj.callRemote('set_context', tls_cfg)
+        d.addCallback(self.log_msg)
+
+    def del_context(self, tenant_id):
+        log.debug('Removing tls context for tenant:%d' % tenant_id)
+        d = self.rootObj.callRemote('del_context', tenant_id)
         d.addCallback(self.log_msg)
 
     def log_msg(self, result):
         log.debug('Child responded: %s' % result)
-
-    def send_shutdown_signal(self, _, t):
-        log.msg('Asking https server to shutdown')
-        self.rootObj.callRemote('shutdown', t)

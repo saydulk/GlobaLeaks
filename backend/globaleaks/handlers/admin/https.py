@@ -385,7 +385,7 @@ class ConfigHandler(BaseHandler):
             yield try_to_enable_https(self.current_tenant)
             self.tstate.memc.private.https_enabled = True
 
-            yield self.app_state.process_supervisor.configure_tls_ctx(self.ten_state)
+            yield self.app_state.process_supervisor.configure_tls_ctx(self.req_state.ten_state)
             self.set_status(200)
         except Exception as e:
             log.err(e)
@@ -402,8 +402,7 @@ class ConfigHandler(BaseHandler):
         yield disable_https(self.current_tenant)
         self.tstate.memc.private.https_enabled = False
 
-        # TODO(tid_me) only let root_tenant launch workers
-        yield self.app_state.process_supervisor.shutdown()
+        yield self.app_state.process_supervisor.remove_tls_ctx(self.req_state.ten_state)
         self.set_status(200)
 
 

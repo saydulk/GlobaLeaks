@@ -52,32 +52,29 @@ class ProcessSupervisor(object):
         self.proxy_cfg['tls_socket_fds'] = [ns.fileno() for ns in net_sockets]
 
     @transact
-    def maybe_launch_https_workers(self, store):
-        self.db_maybe_launch_https_workers(store)
+    def maybe_launch_https_workers(self, store, app_state):
+        self.db_maybe_launch_https_workers(store, app_state)
 
     @defer.inlineCallbacks
-    def db_maybe_launch_https_workers(self, store):
-        privFact = PrivateFactory(store, ROOT_TENANT)
+    def db_maybe_launch_https_workers(self, store, app_state):
+        # NOTE TODO TODO for this MVP the https workers are always launched
 
-        on = privFact.get_val('https_enabled')
-        if not on:
-            log.info("Not launching workers")
-            yield defer.succeed(None)
-            return
-
-        db_cfg = load_tls_dict(store, ROOT_TENANT)
         # TODO remove default tls config added at this point
+        db_cfg = load_tls_dict(store, ROOT_TENANT)
         self.proxy_cfg.update(db_cfg)
 
         chnv = tls.ChainValidator()
         ok, err = chnv.validate(db_cfg, must_be_disabled=False)
 
         if ok and err is None:
-            log.info("Decided to launch https workers")
+            log.info("Decided-to-launch-https-workers")
             yield self.launch_https_workers()
         else:
-            log.info("Not launching https workers due to %s" % err)
+            log.info("Not-launching-https-workers-due-to-%s" % err)
             yield defer.fail(err)
+
+        log.debug('Confguring worker')
+        yield self.configure_tls_ctxs(app_state)
 
     def launch_https_workers(self):
         self.tls_process_state['deaths'] = 0
@@ -92,9 +89,53 @@ class ProcessSupervisor(object):
     def launch_worker(self):
         pp = HTTPSProcProtocol(self, self.proxy_cfg)
         self.tls_process_pool.append(pp)
-        reactor.spawnProcess(pp, executable, [executable, self.worker_path], childFDs=pp.fd_map, env=os.environ)
+        s_path = pp.cfg['unix_control_sock']
+        reactor.spawnProcess(pp, executable, [executable, self.worker_path, s_path], childFDs=pp.fd_map, env=os.environ)
         log.info('Launched: %s' % (pp))
         return pp.startup_promise
+
+    @defer.inlineCallbacks
+    def launch_and_configure_workers(self, app_state):
+        log.debug('maybe launching workers')
+        yield self.maybe_launch_https_workers(app_state)
+        #yield self.launch_https_workers()
+
+    @transact
+    def configure_tls_ctxs(self, store, app_state):
+        for ten_state in app_state.tenant_states.values():
+            log.debug('ten_state: %s' % ten_state)
+            # TODO get a list of tenant config all at once.
+            self.db_configure_tls_ctx(store, ten_state)
+            log.debug('finished: %s' % ten_state)
+
+    @transact
+    def configure_tls_ctx(self, *args, **kwargs):
+        return self.db_configure_tls_ctx(*args, **kwargs)
+
+    @defer.inlineCallbacks
+    def db_configure_tls_ctx(self, store, ten_state):
+        tls_cfg = load_tls_dict(store, ten_state.id)
+
+        log.msg('='*50)
+        log.debug('Configuring tls context')
+        chnv = tls.ChainValidator()
+        ok, err = chnv.validate(tls_cfg, must_be_disabled=False)
+        if not ok or err is not None:
+            log.debug('Skipping https setup for %s because: %s' % (ten_state.memc.https_hostname, err))
+            return
+
+        for pp in self.tls_process_pool:
+            log.debug('Added tls ctx for %s to %s' % (ten_state, pp))
+            tls_cfg['tid'] = ten_state.id
+            yield pp.cc.set_context(tls_cfg)
+        log.debug('Finished tls cfg config')
+        log.msg('='*50)
+
+    def remove_tls_ctx(self, ten_state):
+        log.debug('Deleting tls cfg config')
+        for pp in self.tls_process_pool:
+            yield pp.cc.del_context(ten_state.id)
+        log.debug('Finished Delete of tls cfg config')
 
     def handle_worker_death(self, pp, reason):
         '''

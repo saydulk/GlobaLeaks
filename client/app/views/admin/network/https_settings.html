@@ -29,7 +29,7 @@
     <h3 data-translate >System message:</h3>
     <div class="alert alert-info">{{tls_config.status.timestamp | date:'dd-MM-yyyy HH:mm' }} {{ tls_config.status.msg }}</div>
   </div>
-  <div data-ng-if="!tls_config.running">
+  <div data-ng-if="!tls_config.enabled">
     <h3 data-translate>Configuration</h3>
     <div>
       <hr/>

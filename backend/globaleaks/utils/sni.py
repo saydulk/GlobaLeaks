@@ -7,6 +7,7 @@
 # is currently not released as Debian package.
 
 import collections
+import os
 
 from zope.interface import implementer
 
@@ -126,15 +127,16 @@ class SNIMap(object):
         )
 
         self.context = self.mapping['DEFAULT'].getContext()
-        #self.context = new_tls_context()
 
         self.context.set_tlsext_servername_callback(
             self.selectContext
         )
 
+        self._log = open('./subproc.log', 'wa', 0).write
+
     def selectContext(self, connection):
         common_name = connection.get_servername()
-        print('For connection: %s with cname: %s choosing from: %s' % (connection, common_name, self.mapping))
+        self._log('For connection: %s with cname: %s choosing from: %s\n' % (connection, common_name, self.mapping))
         if common_name in self.mapping:
             newContext = self.mapping[common_name].getContext()
 
@@ -144,7 +146,6 @@ class SNIMap(object):
             connection.set_context(newContext)
 
     def serverConnectionForTLS(self, protocol):
-        #return Connection(self.context, None)
         return _ConnectionProxy(Connection(self.context, None), self)
 
     def _npnAdvertiseCallbackForContext(self, context, callback):
@@ -164,8 +165,10 @@ class SNIMap(object):
     def add_new_context(self, common_name, ctx):
         # TODO if common_name is 'DEFAULT' throw up
         self.mapping[common_name] = ctx
-        log.msg('Added new context: %s' % common_name)
+        self._log('Added new context: %s' % common_name)
 
     def remove_old_context(self, common_name):
         # TODO if common_name is 'DEFAULT' throw up
-        self.mapping.pop(common_name)
+        r = self.mapping.pop(common_name)
+        del r
+        self._log('Removed old context: %s' % common_name)
