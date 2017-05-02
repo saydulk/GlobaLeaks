@@ -104,6 +104,7 @@ def root_tenant_only(f):
 
 
 class TenantCollection(BaseHandler):
+    @root_tenant_only
     @BaseHandler.transport_security_check('admin')
     @BaseHandler.authenticated('admin')
     @inlineCallbacks

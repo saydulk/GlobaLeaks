@@ -38,14 +38,14 @@
     <a href="#/admin/mail">
       <i class="glyphicon glyphicon-chevron-right"></i>
       <span data-translate>Notification settings</span>
-   </a>
+    </a>
   </li>
 
   <li data-ng-class="active.url_shortener">
     <a href="#/admin/url_shortener">
       <i class="glyphicon glyphicon-chevron-right"></i>
       <span data-translate>URL shortener</span>
-   </a>
+    </a>
   </li>
 
   <li data-ng-class="active.network">
@@ -55,7 +55,7 @@
     </a>
   </li>
 
-  <li data-ng-class="active.tenants">
+  <li data-ng-show="admin.node.is_root_tenant" data-ng-class="active.tenants">
     <a href="#/admin/tenants">
       <i class="glyphicon glyphicon-chevron-right"></i>
       <span data-translate>Sites management</span>

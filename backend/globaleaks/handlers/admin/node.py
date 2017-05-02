@@ -10,6 +10,7 @@ from storm.expr import In
 from twisted.internet.defer import inlineCallbacks
 
 from globaleaks import models, utils, LANGUAGES_SUPPORTED_CODES, LANGUAGES_SUPPORTED
+from globaleaks.constants import ROOT_TENANT
 from globaleaks.db.appdata import load_appdata
 from globaleaks.handlers.base import BaseHandler
 from globaleaks.state import app_state
@@ -35,6 +36,7 @@ def db_admin_serialize_node(store, tid, language):
         'languages_enabled': EnabledLanguage.list(store, tid),
         'configured': configured,
         'custom_homepage': custom_homepage,
+        'is_root_tenant': ROOT_TENANT == tid,
     }
 
     l10n_dict = NodeL10NFactory(store, tid).localized_dict(language)
