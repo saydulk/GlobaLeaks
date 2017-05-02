@@ -480,10 +480,10 @@ class BaseHandler(RequestHandler):
         # TODO(tid_me) use multiple tor addresses
         # TODO handle the case where we are not interested in applying the exit list
         if should_redirect_tor(self.request,
-                               'TODOTODOTODO.onion', # was GLSettings.onionservice,
+                               self.tstate.memc.onion_hostname,
                                self.app_state.tor_exit_set):
             log.debug('Decided to redirect to tor')
-            self.redirect_tor(GLSettings.onionservice)
+            self.redirect_tor(self.tstate.memc.onion_hostname)
 
         self.request.request_type = None
         # TODO subclass BaseHandler in admin/fields

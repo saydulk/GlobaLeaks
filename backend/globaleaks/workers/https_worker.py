@@ -24,7 +24,7 @@ class ControlPanel(pb.Root):
 
     def remote_startup(self, cfg):
         if self.tls_server.started:
-            raise Excpetion('Already started')
+            raise Exception('Already started')
         self.tls_server.launch_server(cfg)
         return 0
 

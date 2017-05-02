@@ -221,6 +221,7 @@ def db_prepare_fields_serialization(store, fields):
             tmp.append(f.id)
             if f.template_id is not None:
                 fields_ids.append(f.template_id)
+                # TODO(@evilaliv3) pylint catches this error
                 tmp.append(t.template_id)
 
         del fields_ids[:]

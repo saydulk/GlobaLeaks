@@ -30,6 +30,12 @@ def load_tls_dict(store, tid):
     '''
     privFact = PrivateFactory(store, tid)
 
+    #TODO(tid_me) remove requirement for port usage from the https_hostname 
+    commonname = Tenant.db_get(store, id=tid).https_hostname
+    cn = commonname.split(':')
+    if len(cn) == 2:
+        commonname = cn[0]
+
     # /START ssl_* is used here to indicate the quality of the implementation
     # /END Tongue in cheek.
     tls_cfg = {
@@ -38,7 +44,7 @@ def load_tls_dict(store, tid):
         'ssl_intermediate': privFact.get_val('https_chain'),
         'ssl_dh': privFact.get_val('https_dh_params'),
         'https_enabled': privFact.get_val('https_enabled'),
-        'commonname': Tenant.db_get(store, id=tid).https_hostname.split(':')[0],
+        'commonname': cn,
         'tenant_id': tid,
     }
 

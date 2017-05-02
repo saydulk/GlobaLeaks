@@ -3,7 +3,7 @@ from twisted.internet.defer import inlineCallbacks
 from globaleaks.db.appdata import load_appdata
 from globaleaks.state import app_state
 from globaleaks.handlers.admin import tenant
-from globaleaks.handlers.admin.tenant import db_create_tenant 
+from globaleaks.handlers.admin.tenant import db_create_tenant
 from globaleaks.state import AppState
 from globaleaks.models.config import NodeFactory
 from globaleaks.orm import transact
@@ -33,7 +33,9 @@ class TestStateChanges(helpers.TestGL):
         self.assertEqual(len(app_state.tenant_states), 1)
 
         # Add another tenant to the system
-        new_ten = db_create_tenant(store, {'label': 'tn2.localhost:8082'}, load_appdata())
+        new_ten = db_create_tenant(store, {'label': 'tn2.localhost:8082',
+                                           'https_hostname': 'gl.localhost'},
+                                   load_appdata())
 
         app_state.db_refresh(store)
 

@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# pylint: disable=no-name-in-module,import-error
 from distutils.version import StrictVersion as V
 
 import txtorcon

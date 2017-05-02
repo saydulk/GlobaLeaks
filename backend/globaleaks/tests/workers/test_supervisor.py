@@ -32,7 +32,7 @@ class TestProcessSupervisor(helpers.TestGL):
     @inlineCallbacks
     def setUp(self):
         super(TestProcessSupervisor, self).setUp()
-        yield test_tls.commit_valid_config()
+        yield test_tls.commit_all_valid_config()
 
     @inlineCallbacks
     def test_init_with_no_launch(self):
@@ -84,7 +84,7 @@ class TestSubprocessRun(helpers.TestGL):
         https_sock, _ = reserve_port_for_ip('127.0.0.1', 9443)
         self.https_socks = [https_sock]
         ssl._https_verify_certificates(enable=False)
-        yield test_tls.commit_valid_config()
+        yield test_tls.commit_all_valid_config()
 
     @inlineCallbacks
     def test_https_process(self):
