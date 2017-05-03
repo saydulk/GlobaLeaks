@@ -2,7 +2,7 @@ PRAGMA foreign_keys = ON;
 PRAGMA auto_vacuum = FULL;
 
 CREATE TABLE tenant (
-    id INTEGER NOT NULL,
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     label TEXT NOT NULL,
     active BOOL NOT NULL,
     -- TODO temporary
@@ -12,8 +12,7 @@ CREATE TABLE tenant (
     onion_hostname TEXT,
     -- Note NULL values do not count as unique
     UNIQUE(https_hostname),
-    UNIQUE(onion_hostname),
-    PRIMARY KEY(id)
+    UNIQUE(onion_hostname)
 );
 
 CREATE TABLE enabledlanguage (
