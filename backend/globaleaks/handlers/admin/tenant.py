@@ -147,6 +147,8 @@ class TenantInstance(BaseHandler):
         Delete the specified tenant.
         """
         tenant_id = int(tenant_id)
+        if tenant_id == ROOT_TENANT:
+            raise errors.ForbbidenOperation
         yield Tenant.delete(id=tenant_id)
         yield self.app_state.refresh()
 

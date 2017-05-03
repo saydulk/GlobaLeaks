@@ -745,7 +745,6 @@ factory('AdminTLSCfgFileResource', ['GLResource', function(GLResource) {
       self.receivers = AdminReceiverResource.query();
       self.notification = AdminNotificationResource.get();
       self.shorturls = AdminShorturlResource.query();
-      self.tenants = AdminTenantResource.query();
       self.activities = ActivitiesCollection.query();
       self.anomalies = AnomaliesCollection.query();
       self.tip_overview = TipOverview.query();
@@ -768,6 +767,7 @@ factory('AdminTLSCfgFileResource', ['GLResource', function(GLResource) {
               self.field_attrs.$promise,
               self.questionnaires.$promise,
               self.fieldtemplates.$promise,
+              self.users.$promise,
               self.receivers.$promise,
               self.notification.$promise,
               self.shorturls.$promise,
@@ -1182,6 +1182,7 @@ factory('AdminTLSCfgFileResource', ['GLResource', function(GLResource) {
       };
 }]).
   constant('CONSTANTS', {
+     "root_tenant_id": 1,
      /* The email regexp restricts email addresses to less than 400 chars. See #1215 */
      "email_regexp": /^([\w+-\.]){0,100}[\w]{1,100}@([\w+-\.]){0,100}[\w]{1,100}$/,
      "number_regexp": /^\d+$/,

@@ -1,5 +1,6 @@
 angular.module('GLClient')
-.controller('MultiTenantCtrl', ['$scope', function($scope) {
+.controller('MultiTenantCtrl', ['$scope', 'AdminTenantResource', function($scope, AdminTenantResource) {
+  $scope.admin.tenants = AdminTenantResource.query();
 
   $scope.new_tenant = {};
 
@@ -15,7 +16,7 @@ angular.module('GLClient')
     });
   }
 }])
-.controller('TenantEditorCtrl', ['$scope', '$location', 'AdminTenantResource', function($scope, $location, AdminTenantResource) {
+.controller('TenantEditorCtrl', ['$scope', '$location', 'AdminTenantResource', 'CONSTANTS', function($scope, $location, AdminTenantResource, CONSTANTS) {
   var tenant = $scope.tenant;
   $scope.delete_tenant = function() {
     AdminTenantResource.delete({
@@ -29,6 +30,10 @@ angular.module('GLClient')
   $scope.isCurrentTenant = function() {
     // TODO Decide whether to allow port or not.
     return $location.host() == tenant.https_hostname || location.host == tenant.https_hostname;
+  }
+
+  $scope.isRemovableTenant = function() {
+    return !isCurrentTenant() && tenant.id !== CONSTANTS.root_tenant_id;
   }
 
   $scope.toggleActivation = function() {
