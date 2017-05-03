@@ -52,13 +52,12 @@ class ProcessSupervisor(object):
         self.proxy_cfg['tls_socket_fds'] = [ns.fileno() for ns in net_sockets]
 
     @transact
-    def maybe_launch_https_workers(self, store, app_state):
-        self.db_maybe_launch_https_workers(store, app_state)
+    def launch_and_configure_workers(self, store, app_state):
+        self.db_launch_and_configure_workers(store, app_state)
 
     @defer.inlineCallbacks
-    def db_maybe_launch_https_workers(self, store, app_state):
+    def db_launch_and_configure_workers(self, store, app_state):
         # NOTE TODO TODO for this MVP the https workers are always launched
-
         # TODO remove default tls config added at this point
         db_cfg = load_tls_dict(store, ROOT_TENANT)
         self.proxy_cfg.update(db_cfg)
@@ -67,14 +66,12 @@ class ProcessSupervisor(object):
         ok, err = chnv.validate(db_cfg, must_be_disabled=False)
 
         if ok and err is None:
-            log.info("Decided-to-launch-https-workers")
+            log.info("Decided to launch https workers")
             yield self.launch_https_workers()
+            log.debug('Confguring workers')
+            yield self.configure_tls_ctxs(app_state)
         else:
-            log.info("Not-launching-https-workers-due-to-%s" % err)
-            yield defer.fail(err)
-
-        log.debug('Confguring worker')
-        yield self.configure_tls_ctxs(app_state)
+            log.info("Not launching https workers because: %s" % err)
 
     def launch_https_workers(self):
         self.tls_process_state['deaths'] = 0
@@ -93,12 +90,6 @@ class ProcessSupervisor(object):
         reactor.spawnProcess(pp, executable, [executable, self.worker_path, s_path], childFDs=pp.fd_map, env=os.environ)
         log.info('Launched: %s' % (pp))
         return pp.startup_promise
-
-    @defer.inlineCallbacks
-    def launch_and_configure_workers(self, app_state):
-        log.debug('maybe launching workers')
-        yield self.maybe_launch_https_workers(app_state)
-        #yield self.launch_https_workers()
 
     @transact
     def configure_tls_ctxs(self, store, app_state):
