@@ -12,10 +12,9 @@ from twisted.internet.protocol import ProcessProtocol
 from twisted.spread import pb
 
 from globaleaks.handlers.admin.tenant import get_tenant_list
-from globaleaks.utils import tls
+from globaleaks.utils import tls, sock
 from globaleaks.utils.tls import tx_load_tls_dict
 from globaleaks.utils.utility import log, randint
-from globaleaks.utils.sock import unix_sock_path, open_unix_sock
 
 
 def SigQUIT(SIG, FRM):
@@ -102,7 +101,7 @@ class HTTPSProcProtocol(CfgFDProcProtocol):
         # Clone the config
         cfg = dict(cfg)
 
-        s_path = unix_sock_path()
+        s_path = sock.unix_sock_path()
         log.debug('Reserved unix sock: %s' % s_path)
         cfg['unix_control_sock'] = s_path
 
@@ -135,15 +134,17 @@ class ControlClient(object):
         reactor.connectUNIX(u_sock, clientfactory)
         log.debug('Socket connected')
         self.startup_promise = clientfactory.getRootObject()
-        self.startup_promise.addCallback(self.attach_root)
+        self.startup_promise.addCallback(self.attach_root, u_sock)
         self.startup_promise.addCallback(self.launch_server, cfg)
         self.startup_promise.addErrback(self.failedStartup)
 
     def failedStartup(self, *args):
         log.err('PB startup failed with %s' % args)
 
-    def attach_root(self, rootObj):
+    def attach_root(self, rootObj, u_sock):
         self.rootObj = rootObj
+        log.debug('Dropping perms on socket %s' % u_sock)
+        sock.drop_uds_perms(u_sock)
 
     def launch_server(self, _, cfg):
         log.debug('Calling remote subprocess startup')

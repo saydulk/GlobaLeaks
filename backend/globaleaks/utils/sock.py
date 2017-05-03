@@ -35,8 +35,16 @@ def open_unix_sock(path):
 
 def unix_sock_path():
     rand = ''.join(map(hex, map(ord, os.urandom(4))))
-    # TODO output looks like: /tmp/glsub-uds-0x4b0xb30x330x58
     return '/tmp/glsub-uds-' + rand
+
+
+def drop_uds_perms(path):
+    # TODO preferably the user nobody would own the socket so that even the globaleaks
+    # user can touch the sockets after they are created.
+    #    tup = pwd.getpwnam('nobody')
+    #    pid, gid = tup[2], tup[3]
+    #    os.chown(path, pid, gid)
+    os.chmod(path, 0000)
 
 
 def reserve_port_for_ip(ip, port):
