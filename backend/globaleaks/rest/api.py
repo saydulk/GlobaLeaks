@@ -262,12 +262,24 @@ class APIResourceWrapper(Resource):
 
         groups = [unicode(g) for g in match.groups()]
         h = handler(request, **args)
-        d = defer.maybeDeferred(f, h, *groups)
+        print 'a'
+        if h.request.finished:
+            # If a redirect has occurred the reqeust stops here
+            print 'b'
+            def not_deferred():
+                return None
+            d = defer.maybeDeferred(not_deferred)
+            #return b''
+
+        else:
+            print 'c'
+            d = defer.maybeDeferred(f, h, *groups)
 
         @defer.inlineCallbacks
         def concludeHandlerFailure(err):
             yield h.execution_check()
 
+            print 'd'
             self.handle_exception(err, request)
 
             if not request_finished[0]:
@@ -281,7 +293,9 @@ class APIResourceWrapper(Resource):
             """
             yield h.execution_check()
 
+            print 'e'
             if not ret is None:
+                print 'e1'
                 h.write(ret)
 
             if not request_finished[0]:

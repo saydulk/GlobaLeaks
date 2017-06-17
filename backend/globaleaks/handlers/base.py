@@ -183,13 +183,15 @@ class BaseHandler(object):
 
         self.client_using_tor = self.client_ip in GLSettings.state.tor_exit_set
         if 'x-tor2web' in self.request.headers:
-           self.client_using_tor = False
+            self.client_using_tor = False
 
         if self.should_redirect_tor():
-           self.redirect_tor()
+            self.redirect_tor()
+            return
 
         if self.should_redirect_https():
             self.redirect_https()
+            return
 
         language = self.request.headers.get('gl-language')
 
@@ -458,8 +460,16 @@ class BaseHandler(object):
     def redirect_https(self):
         self.redirect('https://' + self.getRequestHostname() + self.request.uri)
 
-    def redirect_tor(self, onion_addr):
-        self.redirect('http://' + onion_path + self.request.uri)
+    def redirect_tor(self):
+        print self.request.uri
+        in_url = self.request.uri
+        _, _, path, query, frag = urlparse.urlsplit(in_url)
+
+        out_url = urlparse.urlunsplit(('http', GLSettings.onionservice, path, query, frag))
+        print 'orig', out_url
+        self.redirect(out_url)
+        print 'gio_url', 'http://' + GLSettings.onionservice + self.request.uri
+        #self.redirect()
 
     def write_file(self, filepath):
         if not os.path.exists(filepath) or not os.path.isfile(filepath):
@@ -494,14 +504,13 @@ class BaseHandler(object):
     def should_redirect_tor(self):
         if GLSettings.onionservice is not None and self.client_using_tor:
             return True
-
-        return False
+        #return False
+        return True
 
     def should_redirect_https(self):
         if GLSettings.memory_copy.private.https_enabled and \
            self.client_proto is 'http' and self.client_ip not in GLSettings.local_hosts:
             return True
-
         return False
 
     def get_file_upload(self):

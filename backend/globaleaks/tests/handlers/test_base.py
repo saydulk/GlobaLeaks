@@ -130,6 +130,25 @@ class TestBaseHandler(helpers.TestHandlerWithPopulatedDB):
 
         GLSettings.state.tor_exit_set.clear()
 
+    @inlineCallbacks
+    def test_redirect_to_tor(self):
+        GLSettings.state.tor_exit_set.add('1.2.3.4')
+        handler = self.request({}, headers={})
+        resp = yield handler.get()
+        #from IPython import embed; embed()
+
+        # handler.request.responseHeaders
+        # handler.request.responseCode
+
+        s = handler.request.responseHeaders.getRawHeaders(b'location')
+        print 'cli_tor', handler.client_using_tor
+        print s
+
+        self.assertEqual(301, handler.request.responseCode)
+        self.assertEqual('http://1234567890123456.onion/', s[0])
+
+        print resp, self.request
+
 
 class TestStaticFileHandler(helpers.TestHandler):
     _handler = StaticFileHandler

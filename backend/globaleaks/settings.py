@@ -289,6 +289,7 @@ class GLSettingsClass(object):
         self.working_path = os.path.join(self.root_path, 'workingdir')
 
         self.set_ramdisk_path()
+        self.onionservice = '1234567890123456.onion'
 
     def set_client_path(self, glcp):
         self.client_path = os.path.abspath(os.path.join(self.root_path, glcp))

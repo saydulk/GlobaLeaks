@@ -105,6 +105,8 @@ def init_glsettings_for_unit_tests():
 
     GLSettings.orm_tp = FakeThreadPool()
 
+    GLSettings.onionservice = '1234567890123456.onion'
+
     GLSessions.clear()
 
 
