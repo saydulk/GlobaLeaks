@@ -134,7 +134,7 @@ class TestUtility(unittest.TestCase):
 class TestLogging(unittest.TestCase):
     def setUp(self):
         fake_std_out = StringIO.StringIO()
-        self._stdout, sys.stdout = sys.stdout, fake_std_out
+        #self._stdout, sys.stdout = sys.stdout, fake_std_out
 
     def tearDown(self):
         sys.stdout = self._stdout
@@ -155,7 +155,7 @@ class TestLogging(unittest.TestCase):
 
         # Emit logs through twisted's interface. Import is required now b/c of stdout hack
         from twisted.python import log as twlog
-        twlog.err("error-msg")
+        utility.log.err("error")
         observer.stop()
 
         s = output_buff.getvalue()
@@ -163,4 +163,5 @@ class TestLogging(unittest.TestCase):
         gex = r".+ \[ut\] x\n"
         m = re.findall(gex, s)
         self.assertTrue(len(m) == 2)
-        self.assertTrue(s.endswith("[-] msg-msg\n"))
+        print s
+        self.assertTrue(s.startswith("[E] error\n"))
