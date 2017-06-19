@@ -717,6 +717,11 @@ class TestHandler(TestGLWithPopulatedDB):
 
         request.path = ''
         request.code = 200
+        request.language = 'en'
+        request.client_ip = '127.0.0.1'
+        request.client_proto = 'https'
+        request.client_using_tor = False
+
         request.getResponseBody = getResponseBody
 
         request.client = IPv4Address('TCP', '1.2.3.4', 12345)
@@ -728,6 +733,8 @@ class TestHandler(TestGLWithPopulatedDB):
         if headers is not None:
             for k, v in headers.iteritems():
                 request.requestHeaders.setRawHeaders(bytes(k), [bytes(v)])
+
+        request.headers = request.getAllHeaders()
 
         if path is not None:
             if not path.startswith('/'):

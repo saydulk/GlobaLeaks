@@ -167,13 +167,9 @@ class BaseHandler(object):
     invalidate_cache = False
 
     def __init__(self, request):
+        self.name = type(self).__name__
         self.request = request
         self.request.start_time = datetime.now()
-
-        self.name = type(self).__name__
-
-        self.req_id = GLSettings.requests_counter
-        GLSettings.requests_counter += 1
 
     def write(self, chunk):
         if isinstance(chunk, types.DictType) or isinstance(chunk, types.ListType):
@@ -502,7 +498,6 @@ class BaseHandler(object):
 
 
 class StaticFileHandler(BaseHandler):
-    # TODO(nskelsey) test to ensure this does not break refreshes with X-Session passed.
     check_roles = '*'
 
     def __init__(self, request, path):

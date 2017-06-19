@@ -201,26 +201,6 @@ class APIResourceWrapper(Resource):
 
             self._registry.append((re.compile(pattern), handler, args))
 
-    def parse_accept_language_header(self, request):
-        if "accept-language" in request.headers:
-            languages = request.headers["accept-language"].split(",")
-            locales = []
-            for language in languages:
-                parts = language.strip().split(";")
-                if len(parts) > 1 and parts[1].startswith("q="):
-                    try:
-                        score = float(parts[1][2:])
-                    except (ValueError, TypeError):
-                        score = 0.0
-                else:
-                    score = 1.0
-                locales.append((parts[0], score))
-            if locales:
-                locales.sort(key=lambda pair: pair[1], reverse=True)
-                return [l[0] for l in locales]
-
-        return GLSettings.memory_copy.default_language
-
     def should_redirect_tor(self, request):
         if GLSettings.memory_copy.onionservice is not None and request.client_using_tor:
             return True
@@ -280,13 +260,7 @@ class APIResourceWrapper(Resource):
 
         request.write(bytes(response))
 
-
-    def render(self, request):
-        """
-        @param request: `twisted.web.Request`
-
-        @return: empty `str` or `NOT_DONE_YET`
-        """
+    def preprocess(self, request):
         request.headers = request.getAllHeaders()
 
         request.client_ip = request.headers.get('gl-forwarded-for', None)
@@ -299,6 +273,18 @@ class APIResourceWrapper(Resource):
         if 'x-tor2web' in request.headers:
             request.client_using_tor = False
 
+        self.detect_language(request)
+
+        self.set_default_headers(request)
+
+    def render(self, request):
+        """
+        @param request: `twisted.web.Request`
+
+        @return: empty `str` or `NOT_DONE_YET`
+        """
+        self.preprocess(request)
+
         if self.should_redirect_tor(request):
             self.redirect_tor(request)
             return b''
@@ -306,22 +292,6 @@ class APIResourceWrapper(Resource):
         if self.should_redirect_https(request):
             self.redirect_https(request)
             return b''
-
-        language = request.headers.get('gl-language')
-
-        if language is None:
-            for l in self.parse_accept_language_header(request):
-                if l in GLSettings.memory_copy.languages_enabled:
-                    language = l
-                    break
-
-        if language is None or language not in GLSettings.memory_copy.languages_enabled:
-            language = GLSettings.memory_copy.default_language
-
-        request.language = language
-        request.setHeader('Content-Language', language)
-
-        self.set_default_headers(request)
 
         request_finished = [False]
         def _finish(_):
@@ -418,3 +388,41 @@ class APIResourceWrapper(Resource):
         # same origin is needed in order to include svg and other html <object>
         if not GLSettings.memory_copy.allow_iframes_inclusion:
             request.setHeader("X-Frame-Options", "sameorigin")
+
+    def parse_accept_language_header(self, request):
+        if "accept-language" in request.headers:
+            languages = request.headers["accept-language"].split(",")
+            locales = []
+            for language in languages:
+                parts = language.strip().split(";")
+                if len(parts) > 1 and parts[1].startswith("q="):
+                    try:
+                        score = float(parts[1][2:])
+                    except (ValueError, TypeError):
+                        score = 0.0
+                else:
+                    score = 1.0
+                locales.append((parts[0], score))
+
+            if locales:
+                locales.sort(key=lambda pair: pair[1], reverse=True)
+                return [l[0] for l in locales]
+
+        return GLSettings.memory_copy.default_language
+
+    def detect_language(self, request):
+        language = request.headers.get('gl-language')
+
+        if language is None:
+            for l in self.parse_accept_language_header(request):
+                if l in GLSettings.memory_copy.languages_enabled:
+                    language = l
+                    break
+
+        if language is None or language not in GLSettings.memory_copy.languages_enabled:
+            language = GLSettings.memory_copy.default_language
+
+        request.language = language
+        request.setHeader('Content-Language', language)
+
+        return language
